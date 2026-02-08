@@ -1,5 +1,5 @@
 // app/components/vehicle/VehicleCard.tsx
-import { Star, MapPin, Shield } from 'lucide-react'
+import { Star, MapPin, Shield } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card'
 import { Button } from '@/app/components/ui/button'
 import Link from 'next/link'

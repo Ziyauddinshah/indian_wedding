@@ -108,7 +108,7 @@ export default function HeroSection() {
               </button>
             </Link>
             
-            <Link href="/partner">
+            <Link href="/partner/dashboard">
               <button className="px-8 py-4 bg-white/90 backdrop-blur-sm border-2 border-yellow-400 text-[#8B0000] font-bold rounded-xl shadow-lg hover:shadow-yellow-400/50 hover:scale-105 transform transition-all duration-300 flex items-center justify-center">
                 List Your Vehicle
               </button>

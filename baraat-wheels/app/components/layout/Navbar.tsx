@@ -33,8 +33,7 @@ export default function Navbar() {
           <div className="hidden lg:flex items-center space-x-8">
             {[
               { name: 'Browse Vehicles', href: '/vehicles' },
-              { name: 'For Partners', href: '/partner' },
-              { name: 'Gallery', href: '/gallery' },
+              { name: 'For Partners', href: '/partner/dashboard' },
             ].map((item) => (
               <Link
                 key={item.name}
@@ -77,16 +76,19 @@ export default function Navbar() {
         {isMenuOpen && (
           <div className="lg:hidden py-4 border-t border-white/20">
             <div className="flex flex-col space-y-4">
-              {['Browse Vehicles', 'Cities', 'For Partners', 'Gallery'].map((item) => (
+              {[{ name: 'Browse Vehicles', href: '/vehicles' },
+              { name: 'For Partners', href: '/partner/dashboard' },
+              { name: 'Gallery', href: '/gallery' }].map((item) => (
                 <Link
-                  key={item}
-                  href={`/${item.toLowerCase().replace(' ', '-')}`}
+                  key={item.name}
+                  href={item.href}
                   className="text-white font-semibold hover:text-yellow-300 transition-colors py-2 px-4 rounded-lg hover:bg-white/10"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  {item}
+                  {item.name}
                 </Link>
               ))}
+              
               <div className="pt-4 border-t border-white/20">
                 <Link href="/login">
                   <button className="w-full py-3 bg-gradient-to-r from-[#FFD700] to-[#FFB347] text-[#8B0000] font-bold rounded-xl">

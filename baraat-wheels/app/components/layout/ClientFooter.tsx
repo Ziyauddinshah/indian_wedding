@@ -227,47 +227,6 @@ export default function ClientFooter() {
           </div>
         </div>
 
-        {/* Stats Banner */}
-        <div className="mt-12 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 backdrop-blur-sm rounded-2xl p-6 border border-amber-500/30">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { number: '500+', label: 'Happy Couples' },
-              { number: '200+', label: 'Royal Vehicles' },
-              { number: '25+', label: 'Cities' },
-              { number: '4.9★', label: 'Rating'},
-            ].map((stat, idx) => (
-              <div key={idx} className="text-center">
-                <div className="text-2xl font-bold text-white">{stat.number}</div>
-                <div className="text-sm text-amber-200">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Newsletter Signup */}
-        <div className="mt-8 text-center">
-          <div className="inline-flex flex-col items-center max-w-md mx-auto">
-            <p className="text-gray-300 mb-4">Get wedding tips & exclusive offers</p>
-            <form onSubmit={handleSubscribe} className="flex gap-2 w-full">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Your email address"
-                className="flex-1 px-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-amber-500"
-                required
-              />
-              <button 
-                type="submit"
-                className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl hover:scale-105 transition-transform"
-              >
-                Subscribe
-              </button>
-            </form>
-            <p className="text-gray-400 text-sm mt-2">No spam, only royal updates! ✨</p>
-          </div>
-        </div>
-
         {/* Decorative Bottom Border */}
         <div className="mt-8 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
       </div>
