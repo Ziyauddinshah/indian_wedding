@@ -319,7 +319,6 @@ export default function MyVehiclesPage() {
                     <div className="flex items-center gap-2">
                       <Star className="fill-yellow-400 text-yellow-400" size={16} />
                       <span className="font-medium">{vehicle.rating}</span>
-                      <span className="text-gray-500">({vehicle.bookings} bookings)</span>
                     </div>
                     <div className="text-sm text-gray-500">Last: {vehicle.lastBooking}</div>
                   </div>
@@ -329,14 +328,6 @@ export default function MyVehiclesPage() {
                     <div className="text-center">
                       <div className="text-sm text-gray-500">Bookings</div>
                       <div className="text-lg font-bold text-gray-800">{vehicle.bookings}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm text-gray-500">Rating</div>
-                      <div className="text-lg font-bold text-gray-800">{vehicle.rating}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm text-gray-500">Status</div>
-                      <div className="text-lg font-bold text-gray-800">{statusBadge.text}</div>
                     </div>
                   </div>
 
