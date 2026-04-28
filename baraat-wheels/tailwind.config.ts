@@ -2,7 +2,9 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+
   darkMode: "class",
+
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -12,6 +14,7 @@ const config: Config = {
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
   ],
+
   // theme: {
   //   extend: {
   //     colors: {
@@ -53,6 +56,7 @@ const config: Config = {
   //   },
   // },
   // plugins: [],
+  
   theme: {
     extend: {
       colors: {
@@ -97,7 +101,9 @@ const config: Config = {
       },
     },
   },
+
   plugins: [],
+  
 };
 
 export default config;

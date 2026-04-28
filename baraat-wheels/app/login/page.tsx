@@ -2,18 +2,31 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter,useSearchParams } from 'next/navigation'
+import { authApi,getApiError } from '../lib/api';
+import Cookies from 'js-cookie';
+import { useAuth } from '@/app/contexts/AuthContext'
+
 
 type UserType = 'customer' | 'partner' | 'admin'
 
+const ROLE_REDIRECT = {
+  admin:    '/admin/dashboard',
+  partner:  '/partner/dashboard',
+  customer: '/customer/dashboard',
+}
+
 export default function LoginPage() {
   const router = useRouter()
+  const { login } = useAuth()
+  const searchParams = useSearchParams();
   const [selectedType, setSelectedType] = useState<UserType>('customer')
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     adminCode: '',
     rememberMe: false,
+    userType: 'customer' as UserType,
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -43,32 +56,77 @@ export default function LoginPage() {
     const { name, type, checked, value } = e.target
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === 'checkbox' ? checked : value
     })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/auth/login/${selectedType}`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // })
+      formData.userType = currentType.type;
+
+      const response = await authApi.login(formData);
+      console.log('API response:', response);
+      if (response?.status === 200 || response?.data?.success) {
+        const { user } = response?.data;
+        // 1. Role mismatch — user picked wrong tab
+        if (user.role !== selectedType) {
+          setError(
+            `This account is registered as "${user.role}". ` +
+            `Please select the "${user.role}" tab and try again.`
+          );
+          setLoading(false);
+          return;
+        }
+ 
+        // 2. Partner not yet approved
+        // if (user.role === 'partner' && !user.isApproved) {
+        //   router.push('/partner/pending-approval');
+        //   return;
+        // }
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      console.log(`${selectedType} login:`, formData)
-      router.push(`/dashboard/${selectedType}`)
+        // 1. Save token to a cookie (accessible by middleware)
+        Cookies.set('token', response?.data?.token, { 
+          expires: 1, // 1 day
+          secure: true, 
+          sameSite: 'strict',
+          path: '/' 
+        });
+ 
+        // 3. Redirect: use ?redirect= if valid, else go to role dashboard
+        const redirectParam = searchParams.get('redirect');
+        const destination =
+          redirectParam &&
+          redirectParam.startsWith('/') &&
+          !redirectParam.includes('.well-known')
+            ? redirectParam
+            : ROLE_REDIRECT[user.role] ?? '/';
+
+        const userData = {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user?.phone || '+91 98765 43210',
+          role: user.role,
+          avatar: null,
+        };
+        console.log('Logging in user:', userData);
+        login(userData, response?.data?.token);
+        console.log(destination);
+        router.push(destination);
+      } else {
+        // API returned an error but didn't throw (rare, but happens)
+        setError('Login failed. Please check your credentials.');
+      }
+
     } catch (err) {
-      setError('Invalid credentials. Please try again.')
+      console.error('Login error:', err);
+      setError(getApiError(err) || 'An unexpected error occurred. Please try again.');
+      // setError('Invalid credentials. Please try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -126,6 +184,7 @@ export default function LoginPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
+                autoComplete="true"
                 required
                 placeholder={
                   selectedType === 'admin'
@@ -149,6 +208,7 @@ export default function LoginPage() {
                   name="adminCode"
                   value={formData.adminCode}
                   onChange={handleChange}
+                  autoComplete="false"
                   required
                   placeholder="Enter admin code"
                   className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-${currentType.focusColor} transition-colors`}
@@ -165,6 +225,7 @@ export default function LoginPage() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
+                autoComplete="false"
                 required
                 placeholder="••••••••"
                 className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-${currentType.focusColor} transition-colors`}

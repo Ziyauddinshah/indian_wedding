@@ -39,7 +39,7 @@ export default function PartnerLogin() {
       await new Promise(resolve => setTimeout(resolve, 1000))
       
       console.log('Partner login:', formData)
-      router.push('/dashboard/partner')
+      router.push('/partner/dashboard')
     } catch (err) {
       setError('Invalid credentials. Please try again.')
     } finally {

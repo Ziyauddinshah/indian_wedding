@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { authApi } from '../lib/api';
 
 type UserType = 'customer' | 'partner' | 'admin'
 
@@ -14,43 +15,39 @@ export default function RegisterPage() {
 
   // Customer form data
   const [customerData, setCustomerData] = useState({
-    fullName: '',
+    name: '',
     email: '',
     phone: '',
-    location: '',
     address: '',
     password: '',
     confirmPassword: '',
     agreeToTerms: false,
     newsletter: false,
+    userType: 'customer' as UserType,
   })
 
   // Partner form data
   const [partnerData, setPartnerData] = useState({
-    businessName: '',
-    ownerName: '',
+    name: '',
     email: '',
     phone: '',
-    businessType: '',
-    yearsInBusiness: '',
-    website: '',
-    taxId: '',
-    businessAddress: '',
-    businessDescription: '',
+    address: '',
     password: '',
     confirmPassword: '',
     agreeToTerms: false,
+    userType: 'partner' as UserType,
   })
 
   // Admin form data
   const [adminData, setAdminData] = useState({
-    fullName: '',
+    name: '',
     email: '',
     phone: '',
     adminCode: '',
     password: '',
     confirmPassword: '',
     agreeToTerms: false,
+    userType: 'admin' as UserType,
   })
 
   const userTypes = [
@@ -94,6 +91,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
 
     let formData
     if (selectedType === 'customer') formData = customerData
@@ -105,26 +103,14 @@ export default function RegisterPage() {
       setError('Passwords do not match')
       return
     }
-
     if (!formData.agreeToTerms) {
       setError('You must agree to the terms and conditions')
       return
     }
 
-    setLoading(true)
-
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/auth/register/${selectedType}`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // })
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      console.log(`${selectedType} registration:`, formData)
+      const response = await authApi.register(formData);
+      console.log('API response:', response?.data);
       router.push('/login')
     } catch (err) {
       setError('Registration failed. Please try again.')
@@ -194,8 +180,8 @@ export default function RegisterPage() {
                   <label className="block text-gray-700 font-medium mb-2">Full Name *</label>
                   <input
                     type="text"
-                    name="fullName"
-                    value={customerData.fullName}
+                    name="name"
+                    value={customerData.name}
                     onChange={handleCustomerChange}
                     required
                     placeholder="Jane Smith"
@@ -229,26 +215,13 @@ export default function RegisterPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Location *</label>
-                  <input
-                    type="text"
-                    name="location"
-                    value={customerData.location}
-                    onChange={handleCustomerChange}
-                    required
-                    placeholder="City, State"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors"
-                  />
-                </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-gray-700 font-medium mb-2">Address</label>
                   <textarea
                     name="address"
                     value={customerData.address}
                     onChange={handleCustomerChange}
-                    placeholder="Enter your full address (optional)"
+                    placeholder="Enter your full address"
                     rows={2}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors resize-none"
                   />
@@ -288,40 +261,27 @@ export default function RegisterPage() {
             {selectedType === 'partner' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Business Name *</label>
-                  <input
-                    type="text"
-                    name="businessName"
-                    value={partnerData.businessName}
-                    onChange={handlePartnerChange}
-                    required
-                    placeholder="ABC Services Inc."
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-
-                <div>
                   <label className="block text-gray-700 font-medium mb-2">Owner Name *</label>
                   <input
                     type="text"
-                    name="ownerName"
-                    value={partnerData.ownerName}
+                    name="name"
+                    value={partnerData.name}
                     onChange={handlePartnerChange}
                     required
-                    placeholder="John Doe"
+                    placeholder="Enter owner full name"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Business Email *</label>
+                  <label className="block text-gray-700 font-medium mb-2">Email *</label>
                   <input
                     type="email"
                     name="email"
                     value={partnerData.email}
                     onChange={handlePartnerChange}
                     required
-                    placeholder="business@example.com"
+                    placeholder="Enter email address"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
@@ -334,94 +294,20 @@ export default function RegisterPage() {
                     value={partnerData.phone}
                     onChange={handlePartnerChange}
                     required
-                    placeholder="+1 234 567 8900"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Business Type *</label>
-                  <select
-                    name="businessType"
-                    value={partnerData.businessType}
-                    onChange={handlePartnerChange}
-                    required
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
-                  >
-                    <option value="">Select business type</option>
-                    <option value="plumbing">Plumbing</option>
-                    <option value="electrical">Electrical</option>
-                    <option value="cleaning">Cleaning Services</option>
-                    <option value="catering">Catering</option>
-                    <option value="photography">Photography</option>
-                    <option value="landscaping">Landscaping</option>
-                    <option value="construction">Construction</option>
-                    <option value="automotive">Automotive</option>
-                    <option value="it">IT Services</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Years in Business *</label>
-                  <input
-                    type="number"
-                    name="yearsInBusiness"
-                    value={partnerData.yearsInBusiness}
-                    onChange={handlePartnerChange}
-                    required
-                    placeholder="5"
-                    min="0"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Website</label>
-                  <input
-                    type="url"
-                    name="website"
-                    value={partnerData.website}
-                    onChange={handlePartnerChange}
-                    placeholder="https://www.example.com"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Tax ID / EIN</label>
-                  <input
-                    type="text"
-                    name="taxId"
-                    value={partnerData.taxId}
-                    onChange={handlePartnerChange}
-                    placeholder="12-3456789"
+                    placeholder="Enter phone number"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-gray-700 font-medium mb-2">Business Address *</label>
+                  <label className="block text-gray-700 font-medium mb-2">Address *</label>
                   <textarea
-                    name="businessAddress"
-                    value={partnerData.businessAddress}
+                    name="address"
+                    value={partnerData.address}
                     onChange={handlePartnerChange}
                     required
-                    placeholder="123 Main St, Suite 100, City, State 12345"
+                    placeholder="Enter street address, city, state, zip code"
                     rows={2}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors resize-none"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-gray-700 font-medium mb-2">Business Description *</label>
-                  <textarea
-                    name="businessDescription"
-                    value={partnerData.businessDescription}
-                    onChange={handlePartnerChange}
-                    required
-                    placeholder="Describe your business, services offered, and what makes you unique..."
-                    rows={3}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors resize-none"
                   />
                 </div>
@@ -521,7 +407,7 @@ export default function RegisterPage() {
               disabled={loading}
               className={`w-full bg-gradient-to-r ${currentType.gradient} text-white py-3.5 px-6 rounded-xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
             >
-              {loading ? 'Creating Account...' : selectedType === 'partner' ? 'Register Business' : 'Create Account'}
+              {loading ? 'Creating Account...' : selectedType === 'partner' ? 'Register Partner' : 'Create Account'}
             </button>
           </form>
 
