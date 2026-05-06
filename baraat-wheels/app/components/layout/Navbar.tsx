@@ -23,6 +23,7 @@ export default function Navbar() {
       if (user.role === 'customer') {
         return [
           ...commonLinks,
+          { name: 'Dashboard', href: '/customer/dashboard' },
           { name: 'My Bookings', href: '/customer/bookings' },
           { name: 'Wishlist', href: '/customer/wishlist' },
         ]

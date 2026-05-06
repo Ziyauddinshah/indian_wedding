@@ -4,22 +4,22 @@
 import { Calendar, MapPin, Clock, Phone, Mail, Download, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 
-export default function BookingDetailPage({ params }: { params: { bookingId: string } }) {
-  // Mock data - replace with API call
-  const booking = {
-    id: params.bookingId,
+const bookings = [
+  {
+    id: 'BK-001',
     vehicle: 'White Marwari Horse',
     type: 'Ghodi',
     date: '15 Dec 2024',
     time: '10:00 AM',
-    duration: '4 hours',
     location: 'Jaipur',
-    venue: 'Jaipur Palace Hotel',
+    venue: 'Royal Stables Jaipur',
+    duration: '4 hours',
     price: 15000,
     tax: 2700,
     total: 17700,
     status: 'confirmed',
     paymentStatus: 'paid',
+    rating: 5,
     image: '🐎',
     partner: {
       name: 'Royal Stables Jaipur',
@@ -33,7 +33,83 @@ export default function BookingDetailPage({ params }: { params: { bookingId: str
       'Basic flower garlands',
       'Insurance coverage'
     ]
+  },
+  {
+    id: 'BK-002',
+    vehicle: 'Rolls Royce Phantom',
+    type: 'Luxury',
+    date: '20 Dec 2024',
+    time: '2:00 PM',
+    location: 'Delhi',
+    venue: 'Royal Stables Delhi',
+    duration: '2 hours',
+    price: 65000,
+    tax: 11700,
+    total: 76700,
+    status: 'pending',
+    paymentStatus: 'pending', 
+    rating: 5,
+    image: '🚗',
+    partner: {
+      name: 'Royal Stables Delhi',
+      phone: '+91 98765 12345',
+      email: 'royalstables@example.com'
+    },
+    inclusions: [
+      'Horse with traditional decoration',
+      'Experienced handler (Saise)',
+      'Practice session for groom',
+      'Basic flower garlands',
+      'Insurance coverage'
+    ]
+  },
+  {
+    id: 'BK-000',
+    vehicle: 'Vintage 1950s Car',
+    type: 'Royal',
+    date: '10 Nov 2024',
+    time: '10:00 AM',
+    location: 'Udaipur',
+    venue: 'Royal Stables Udaipur',
+    duration: '5 hours',
+    price: 35000,
+    tax: 6300,
+    total: 41300,
+    status: 'completed',
+    paymentStatus: 'paid',
+    rating: 5,
+    image: '🏎️',
+    partner: {
+      name: 'Royal Stables Udaipur',
+      phone: '+91 98765 12345',
+      email: 'royalstables@example.com'
+    },
+    inclusions: [
+      'Horse with traditional decoration',
+      'Experienced handler (Saise)',
+      'Practice session for groom',
+      'Basic flower garlands',
+      'Insurance coverage'
+    ]
   }
+]
+
+async function getVehicle(id: string) {
+  // Replace with: const res = await fetch(`https://api.example.com/vehicles/${id}`);
+  // const data = await res.json();
+  // return data;
+  const data = bookings.find(v => v.id === id) || null;
+  if(!data)
+    return bookings[0];
+  return data;
+}
+
+export default async function BookingDetailPage({ params }: {
+  params: Promise<{ id: string }>;   // Note: params is a Promise now
+}) {
+
+  const { id } = await params;
+  const booking = await getVehicle(id);
 
   const steps = [
     { name: 'Booking Confirmed', date: '01 Dec 2024', completed: true },

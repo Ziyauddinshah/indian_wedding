@@ -2,7 +2,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, MapPin, Clock, ChevronDown } from 'lucide-react'
+import { Calendar, MapPin, Clock, ChevronDown, Plus } from 'lucide-react'
 import Link from 'next/link'
 
 export default function MyBookingsPage() {
@@ -54,8 +54,17 @@ export default function MyBookingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-6xl">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">My Bookings</h1>
+      <div className="container mx-auto px-4 max-w-5xl">
+        {/* Header with title and new booking button */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">My Bookings</h1>
+          <Link href="/vehicles" className="mt-4 sm:mt-0">
+            <button className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Book New Vehicle
+            </button>
+          </Link>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-8 border-b border-gray-200">
@@ -102,7 +111,7 @@ export default function MyBookingsPage() {
           <div className="space-y-4">
             {bookings[activeTab].map((booking) => (
               <Link key={booking.id} href={`/customer/bookings/${booking.id}`}>
-                <div className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition cursor-pointer">
+                <div className="bg-blue-50 rounded-2xl shadow-lg p-6 hover:shadow-xl transition cursor-pointer mb-2">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className="text-4xl">{booking.image}</div>

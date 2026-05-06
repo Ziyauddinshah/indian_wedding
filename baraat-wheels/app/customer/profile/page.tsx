@@ -1,7 +1,7 @@
 // app/customer/profile/page.tsx
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { User, Mail, Phone, MapPin, Lock, Bell, Save } from 'lucide-react'
 import { useAuth } from '@/app/contexts/AuthContext'
 export default function ProfilePage() {
@@ -15,6 +15,12 @@ export default function ProfilePage() {
     notifications: true,
     marketingEmails: false
   })
+
+  useEffect(() => {
+    // In real app, fetch profile data from API
+    // setProfile(fetchedData)
+    console.log('Profile data loaded',user)
+  }, [])
 
   const handleChange = (field: string, value: any) => {
     setProfile(prev => ({ ...prev, [field]: value }))

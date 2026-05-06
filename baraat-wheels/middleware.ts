@@ -14,12 +14,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 const PUBLIC_ROUTES = [
   '/login',
   '/register',
-  '/admin',
-  '/customer',
-  '/customer/dashboard',
-  '/partner',
-  '/partner/dashboard',
-  '/vehicles',
+  '/', // landing page
   // NOTE: '/' is intentionally NOT here — it's handled as exact match below
   // Putting '/' here would whitelist /customer, /partner, /admin too (startsWith)
 ];
