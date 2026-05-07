@@ -2,6 +2,16 @@ const express = require("express");
 const router = express.Router();
 
 const {
+  authenticate,
+  optionalAuth,
+  authorize,
+  isAdmin,
+  isApprovedClient,
+  isApprovedPartner,
+  selfOrAdmin,
+} = require("../middleware/auth");
+
+const {
   register,
   login,
   getMe,
@@ -11,27 +21,25 @@ const {
   deactivateUser,
 } = require("../controllers/authController");
 
-const { protect, authorize } = require("../middleware/auth");
-
 // ── Public routes ────────────────────────────────────────────
 router.post("/register", register);
 router.post("/login", login);
 
 // ── Private routes (all logged-in users) ─────────────────────
-router.get("/me", protect, getMe);
-router.put("/update-profile", protect, updateProfile);
-router.put("/change-password", protect, changePassword);
+router.get("/me", authenticate, getMe);
+router.put("/update-profile", authenticate, updateProfile);
+router.put("/change-password", authenticate, changePassword);
 
 // ── Admin only routes ─────────────────────────────────────────
 router.put(
   "/admin/approve-client/:id",
-  protect,
+  authenticate,
   authorize("admin"),
   approveClient,
 );
 router.delete(
   "/admin/deactivate/:id",
-  protect,
+  authenticate,
   authorize("admin"),
   deactivateUser,
 );

@@ -1,33 +1,28 @@
+// server.js
 const express = require("express");
-const cors = require("cors");
-const app = express();
-require("dotenv").config();
-const path = require("path");
 const cookieParser = require("cookie-parser");
-const bodyParser = require("body-parser");
-// const errorHandler = require("./utils/errorHandler");
+const cors = require("cors");
 
-const PORT = process.env.PORT || 5000;
+const authRoutes = require("./routes/auth");
 
+const app = express();
+
+// Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
 
-// Middleware to parse JSON bodies
-
-// Allow requests from your frontend origin with credentials
-// CORS - Adjust for production
+// CORS
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    credentials: true, // Important for cookies
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
-// Request logging (development)
+// Request logging (dev only)
 if (process.env.NODE_ENV !== "production") {
   app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} | ${req.method} ${req.path}`);
@@ -35,28 +30,7 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-// Connect to MongoDB
-const connectDB = require("./database/db");
-connectDB();
-
-const userRoutes = require("./routes/userRoutes");
-// const paymentRoutes = require("./routes/paymentRoutes");
-// const notificationRoutes = require("./routes/notificationRoutes");
-
-app.use("/api/users", userRoutes);
-// app.use("/api/payments", paymentRoutes);
-// app.use("/api/notifications", notificationRoutes);
-
-const vehicleRoutes = require("./routes/vehicleRoutes");
-app.use("/api/vehicles", vehicleRoutes);
-
-//Home page
-app.use("/", (req, res) => {
-  res.status(200).send("Home Page of Room On Rent Server");
-});
-
-const authRoutes = require("./routes/authRoutes");
-// Routes
+// Mount auth routes
 app.use("/api/auth", authRoutes);
 
 // Health check
@@ -74,7 +48,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// catch 404 and forward to error handler
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -91,7 +65,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// app.use(errorHandler);
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Vehicle Rental API running on http://localhost:${PORT}`);
@@ -119,5 +93,6 @@ app.listen(PORT, () => {
     `   PATCH /api/auth/admin/deactivate/:id       - Deactivate user`,
   );
   console.log(`   GET  /api/auth/admin/users        - List all users`);
-  console.log(`✅ server running on port ${PORT}`);
 });
+
+module.exports = app;

@@ -1,19 +1,28 @@
+// middleware/auth1.js
 const jwt = require("jsonwebtoken");
+const {
+  JWT_SECRET,
+  isTokenIssuedBeforePasswordChange,
+} = require("../utils/authUtils");
+const db = require("../data/dummyDB");
 const User = require("../models/User");
 
-// ── Verify JWT token ──────────────────────────────────────────────────────────
-exports.protect = async (req, res, next) => {
+/**
+ * Main Authentication Middleware
+ * Verifies access token from Authorization header or cookie
+ */
+const authenticate = async (req, res, next) => {
   try {
+    // 1. Get token from header or cookie
     let token;
 
-    // 1. Bearer token from header
-    if (req.headers.authorization?.startsWith("Bearer")) {
+    // Check Authorization header first
+    if (req.headers.authorization?.startsWith("Bearer ")) {
       token = req.headers.authorization.split(" ")[1];
     }
-
-    // 2. Fallback: cookie
-    else if (req.cookies?.token) {
-      token = req.cookies.token;
+    // Fallback to cookie
+    else if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
     }
 
     if (!token) {
@@ -23,26 +32,11 @@ exports.protect = async (req, res, next) => {
       });
     }
 
-    // 3. Verify token — distinguish expired vs invalid
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
-      if (err.name === "TokenExpiredError") {
-        return res.status(401).json({
-          success: false,
-          message: "Token has expired. Please login again.",
-        });
-      }
-      return res.status(401).json({
-        success: false,
-        message: "Invalid token.",
-      });
-    }
+    // 2. Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
 
-    // 4. Find user — never expose password hash on req.user
-    const user = await User.findById(decoded.id).select("-password");
-
+    // 3. Check if user still exists
+    const user = db.findUserById(decoded.userId);
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -50,57 +44,115 @@ exports.protect = async (req, res, next) => {
       });
     }
 
+    // 4. Check if user is active
     if (!user.isActive) {
-      return res.status(403).json({
+      return res.status(401).json({
         success: false,
-        message: "Your account has been deactivated. Contact support.",
+        message: "Account has been deactivated.",
       });
     }
 
-    // 5. Reject token if password was changed after it was issued
-    if (user.passwordChangedAt) {
-      const changedAt = parseInt(user.passwordChangedAt.getTime() / 1000, 10);
-      if (decoded.iat < changedAt) {
-        return res.status(401).json({
-          success: false,
-          message: "Password was recently changed. Please login again.",
-        });
-      }
+    // 5. Check if password was changed after token was issued
+    if (
+      isTokenIssuedBeforePasswordChange(decoded.iat, user.passwordChangedAt)
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Password recently changed. Please log in again.",
+      });
     }
 
-    req.user = user;
+    // 6. Attach user to request
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+    };
+
     next();
   } catch (error) {
-    console.error("Auth error:", error);
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Token expired. Please refresh your session.",
+        code: "TOKEN_EXPIRED",
+      });
+    }
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token.",
+      });
+    }
+
     return res.status(500).json({
       success: false,
-      message: "Authentication error. Please try again.",
+      message: "Authentication error.",
     });
   }
 };
 
-// ── Role-based access control ─────────────────────────────────────────────────
-// Usage: authorize("admin") or authorize("admin", "partner")
-exports.authorize = (...roles) => {
+/**
+ * Optional Authentication - doesn't fail if no token
+ * Used for routes that work for both guests and logged-in users
+ */
+const optionalAuth = async (req, res, next) => {
+  try {
+    let token;
+
+    if (req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    } else if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
+    }
+
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = db.findUserById(decoded.userId);
+
+      if (user && user.isActive) {
+        req.user = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          name: user.name,
+        };
+      }
+    }
+
+    next();
+  } catch (error) {
+    // Silently continue without user
+    next();
+  }
+};
+
+/**
+ * Role-based Authorization Middleware
+ */
+const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
         success: false,
-        message: "Not authenticated.",
+        message: "Authentication required.",
       });
     }
+
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: `Access denied. Only ${roles.join(", ")} can perform this action.`,
+        message: `Access denied. Required role: ${roles.join(" or ")}`,
       });
     }
+
     next();
   };
 };
 
 // ── Admin check ───────────────────────────────────────────────────────────────
-exports.isAdmin = (req, res, next) => {
+const isAdmin = (req, res, next) => {
   if (req.user?.role !== "admin") {
     return res.status(403).json({
       success: false,
@@ -111,7 +163,7 @@ exports.isAdmin = (req, res, next) => {
 };
 
 // ── Approved client check ─────────────────────────────────────────────────────
-exports.isApprovedClient = (req, res, next) => {
+const isApprovedClient = (req, res, next) => {
   if (req.user.role === "client" && !req.user.clientProfile?.isApproved) {
     return res.status(403).json({
       success: false,
@@ -122,7 +174,7 @@ exports.isApprovedClient = (req, res, next) => {
 };
 
 // ── Approved partner check ────────────────────────────────────────────────────
-exports.isApprovedPartner = (req, res, next) => {
+const isApprovedPartner = (req, res, next) => {
   if (req.user.role === "partner" && !req.user.partnerProfile?.isApproved) {
     return res.status(403).json({
       success: false,
@@ -134,7 +186,7 @@ exports.isApprovedPartner = (req, res, next) => {
 
 // ── Self or Admin check ───────────────────────────────────────────────────────
 // Lets a user access their own resource OR admin access any resource
-exports.selfOrAdmin = (req, res, next) => {
+const selfOrAdmin = (req, res, next) => {
   const isAdmin = req.user?.role === "admin";
   const isSelf = req.user?._id.toString() === req.params.id;
 
@@ -145,4 +197,14 @@ exports.selfOrAdmin = (req, res, next) => {
     });
   }
   next();
+};
+
+module.exports = {
+  authenticate,
+  optionalAuth,
+  authorize,
+  isAdmin,
+  isApprovedClient,
+  isApprovedPartner,
+  selfOrAdmin,
 };

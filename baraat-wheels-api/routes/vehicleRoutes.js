@@ -2,7 +2,8 @@ const express = require("express");
 const multer = require("multer");
 const vehicleController = require("../controllers/vehicleController");
 const {
-  protect,
+  authenticate,
+  optionalAuth,
   authorize,
   isAdmin,
   isApprovedClient,
@@ -39,30 +40,35 @@ router.get("/owner-stats", vehicleController.getOwnerVehicleStats);
 // ── Partner Routes ─────────────────────────────────────────────
 router.post(
   "/add",
-  protect, // 1. must be logged in
+  authenticate, // 1. must be logged in
   authorize("partner"), // 2. must be role = "partner"
   isApprovedPartner, // 3. partner account must be admin-approved,
   uploadFields,
   vehicleController.addVehicle,
 );
-router.get("/my", protect, vehicleController.getMyVehicles);
-router.put("/:id", protect, vehicleController.updateVehicle);
-router.delete("/:id", protect, vehicleController.deleteVehicle);
+router.get("/my", authenticate, vehicleController.getMyVehicles);
+router.put("/:id", authenticate, vehicleController.updateVehicle);
+router.delete("/:id", authenticate, vehicleController.deleteVehicle);
 
 // ── Public Routes ──────────────────────────────────────────────
 router.get("/get-all", vehicleController.getAllVehicles);
 router.get("/:id", vehicleController.getVehicleById);
 
 // ── Admin Routes ───────────────────────────────────────────────
-router.patch("/:id/review", protect, isAdmin, vehicleController.reviewVehicle);
+router.patch(
+  "/:id/review",
+  authenticate,
+  isAdmin,
+  vehicleController.reviewVehicle,
+);
 router.patch(
   "/:id/verify-doc/:docType",
-  protect,
+  authenticate,
   isAdmin,
   vehicleController.verifyDocument,
 );
 
 // ── Rating ─────────────────────────────────────────────────────
-router.post("/:id/rating", protect, vehicleController.addRating);
+router.post("/:id/rating", authenticate, vehicleController.addRating);
 
 module.exports = router;
