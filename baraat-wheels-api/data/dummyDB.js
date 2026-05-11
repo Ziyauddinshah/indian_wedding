@@ -84,6 +84,32 @@ const db = {
         addresses: [],
       },
     },
+    {
+      id: "u3",
+      name: "Customer1",
+      email: "customer1@gmail.com",
+      phone: "+1122334455",
+      password: "$2b$12$hashed_customer_password",
+      role: "customer",
+      isActive: true,
+      isVerified: true,
+      createdAt: new Date("2024-02-20"),
+      refreshTokens: [],
+      passwordResetToken: null,
+      passwordResetExpires: null,
+      passwordChangedAt: new Date("2024-02-20"),
+      loginAttempts: 0,
+      lockUntil: null,
+      lastLogin: null,
+      lastLoginIp: null,
+      // Customer profile
+      customerProfile: {
+        totalBookings: 0,
+        loyaltyPoints: 0,
+        favoriteVehicles: [],
+        addresses: [],
+      },
+    },
     // Pending partner example
     {
       id: "u4",

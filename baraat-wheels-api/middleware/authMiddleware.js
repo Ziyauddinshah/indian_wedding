@@ -1,51 +1,47 @@
-const bcrypt = require("bcryptjs");
+// utils/authUtils.js
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-require("dotenv").config();
+const bcrypt = require("bcryptjs");
+const User = require("../models/User");
 
-// Configuration - should be in environment variables
-const JWT_CONFIG = {
-  secretKey: process.env.JWT_SECRET || crypto.randomBytes(32).toString("hex"),
-  expiresIn: process.env.JWT_EXPIRES_IN || "10h",
-  issuer: process.env.JWT_ISSUER || "your-app-name",
-  audience: process.env.JWT_AUDIENCE || "your-app-client",
+// ─────────────────────────────────────────────────────────────
+// CONFIGURATION
+// ─────────────────────────────────────────────────────────────
+const JWT_SECRET =
+  process.env.JWT_SECRET || crypto.randomBytes(32).toString("hex");
+const JWT_ACCESS_EXPIRY = process.env.JWT_EXPIRES_IN || "15h"; // Short-lived access token
+const JWT_REFRESH_EXPIRY_SHORT = "7d"; // Normal refresh token
+const JWT_REFRESH_EXPIRY_LONG = "30d"; // Remember Me refresh token
+const RESET_TOKEN_EXPIRY = 60 * 60 * 1000; // 1 hour in milliseconds
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_TIME = 2 * 60 * 60 * 1000; // 2 hours lockout
+const SALT_ROUNDS = 12;
+const JWT_ISSUER = process.env.JWT_ISSUER || "your-app-name";
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE || "your-app-client";
+
+/**
+ * Generate Access Token (short-lived, contains user info)
+ */
+const generateAccessToken = (user) => {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      iat: Math.floor(Date.now() / 1000),
+    },
+    JWT_SECRET,
+    {
+      expiresIn: JWT_ACCESS_EXPIRY,
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+      algorithm: "HS256",
+    },
+  );
 };
 
-const generateJwtToken = (
-  user_id,
-  email,
-  name,
-  role_id,
-  login_token_type,
-  additionalClaims = {}
-) => {
-  // Validate required parameters
-  if (!user_id || !email || !name || !login_token_type) {
-    throw new Error("Missing required user information for token generation");
-  }
-
-  const user_data = {
-    tokenName: "Jwt-Token",
-    id: user_id,
-    name: name,
-    role_id: role_id,
-    email: email.toLowerCase(),
-    token_type: login_token_type,
-    ...additionalClaims,
-  };
-
-  // Create token with enhanced options
-  const token = jwt.sign(user_data, JWT_CONFIG.secretKey, {
-    expiresIn: JWT_CONFIG.expiresIn,
-    issuer: JWT_CONFIG.issuer,
-    audience: JWT_CONFIG.audience,
-    algorithm: "HS256",
-  });
-
-  return token;
-};
-
-const verifyToken = async (req, res, next) => {
+const verifyAccessToken = (req, res, next) => {
   const authHeader =
     req.headers["authorization"] || req.headers["Authorization"];
 
@@ -141,7 +137,7 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-const decodeToken = (jwtToken) => {
+const decodeAccessToken = (jwtToken) => {
   if (!jwtToken) {
     throw new Error("No token provided for decoding");
   }
@@ -164,18 +160,24 @@ const decodeToken = (jwtToken) => {
   }
 };
 
-// Additional utility functions
-const generateRefreshToken = (user_id) => {
-  return jwt.sign(
-    { id: user_id, token_type: "refresh" },
-    JWT_CONFIG.secretKey,
-    { expiresIn: "7d" }
-  );
+/**
+ * Generate Refresh Token (long-lived, random string stored in DB)
+ * @param {boolean} rememberMe - If true, token lasts 30 days, else 7 days
+ */
+const generateRefreshToken = (rememberMe = false) => {
+  const token = crypto.randomBytes(64).toString("hex");
+  const expiresIn = rememberMe
+    ? JWT_REFRESH_EXPIRY_LONG
+    : JWT_REFRESH_EXPIRY_SHORT;
+  const days = rememberMe ? 30 : 7;
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+  return { token, expiresAt, expiresIn };
 };
 
 const verifyRefreshToken = async (token) => {
   return new Promise((resolve, reject) => {
-    jwt.verify(token, JWT_CONFIG.secretKey, (error, decoded) => {
+    jwt.verify(token, JWT_SECRET, (error, decoded) => {
       if (error) reject(error);
       else if (decoded.token_type !== "refresh") {
         reject(new Error("Invalid token type"));
@@ -186,11 +188,326 @@ const verifyRefreshToken = async (token) => {
   });
 };
 
+/**
+ * Hash token for storage (prevents DB theft from being usable)
+ */
+const hashToken = (token) => {
+  return crypto.createHash("sha256").update(token).digest("hex");
+};
+
+/**
+ * Generate Password Reset Token
+ * Returns raw token (sent to user) and stores hashed version
+ */
+const generatePasswordResetToken = () => {
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const hashedToken = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY);
+
+  return { raw: rawToken, hashed: hashedToken, expiresAt };
+};
+
+/**
+ * Check if account is locked due to failed attempts
+ */
+const isAccountLocked = (user) => {
+  if (!user.lockUntil) return false;
+  return user.lockUntil > Date.now();
+};
+
+/**
+ * Increment login attempts, lock if exceeded
+ */
+const incrementLoginAttempts = (user) => {
+  if (user.lockUntil && user.lockUntil < Date.now()) {
+    user.loginAttempts = 0;
+    user.lockUntil = null;
+  }
+  user.loginAttempts += 1;
+  if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+    user.lockUntil = Date.now() + LOCK_TIME;
+  }
+  return user;
+};
+
+/**
+ * Reset login attempts on successful login
+ */
+const resetLoginAttempts = (user) => {
+  user.loginAttempts = 0;
+  user.lockUntil = null;
+  return user;
+};
+
+/**
+ * Verify if JWT was issued before password change
+ */
+const isTokenIssuedBeforePasswordChange = (jwtTimestamp, passwordChangedAt) => {
+  if (!passwordChangedAt) return false;
+  const changedTimestamp = Math.floor(passwordChangedAt.getTime() / 1000);
+  return jwtTimestamp < changedTimestamp;
+};
+
+/**
+ * Set token cookies
+ */
+const setTokenCookies = (
+  res,
+  accessToken,
+  refreshToken,
+  rememberMe = false,
+) => {
+  // Access token - short lived
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 15 * 60 * 1000, // 15 minutes
+  });
+
+  // Refresh token - longer lived
+  const refreshMaxAge = rememberMe
+    ? 30 * 24 * 60 * 60 * 1000 // 30 days
+    : 7 * 24 * 60 * 60 * 1000; // 7 days
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: refreshMaxAge,
+    path: "/api/auth/refresh",
+  });
+};
+
+/**
+ * Clear token cookies
+ */
+const clearTokenCookies = (res) => {
+  res.cookie("accessToken", "", {
+    httpOnly: true,
+    expires: new Date(0),
+    sameSite: "strict",
+  });
+  res.cookie("refreshToken", "", {
+    httpOnly: true,
+    expires: new Date(0),
+    path: "/api/auth/refresh",
+    sameSite: "strict",
+  });
+};
+
+/**
+ * Main Authentication Middleware
+ * Verifies access token from Authorization header or cookie
+ */
+const authenticate = async (req, res, next) => {
+  try {
+    // 1. Get token from header or cookie
+    let token;
+
+    // Check Authorization header first
+    if (req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+    // Fallback to cookie
+    else if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Access denied. No token provided.",
+      });
+    }
+
+    // 2. Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // 3. Check if user still exists
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User no longer exists.",
+      });
+    }
+
+    // 4. Check if user is active
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: "Account has been deactivated.",
+      });
+    }
+
+    // 5. Check if password was changed after token was issued
+    if (
+      isTokenIssuedBeforePasswordChange(decoded.iat, user.passwordChangedAt)
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Password recently changed. Please log in again.",
+      });
+    }
+
+    // 6. Attach user to request
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+    };
+
+    next();
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Token expired. Please refresh your session.",
+        code: "TOKEN_EXPIRED",
+      });
+    }
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token.",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Authentication error.",
+    });
+  }
+};
+
+/**
+ * Optional Authentication - doesn't fail if no token
+ * Used for routes that work for both guests and logged-in users
+ */
+const optionalAuth = async (req, res, next) => {
+  try {
+    let token;
+
+    if (req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    } else if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
+    }
+
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await User.findById(decoded.userId);
+
+      if (user && user.isActive) {
+        req.user = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          name: user.name,
+        };
+      }
+    }
+
+    next();
+  } catch (error) {
+    // Silently continue without user
+    next();
+  }
+};
+
+/**
+ * Role-based Authorization Middleware
+ */
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied. Required role: ${roles.join(" or ")}`,
+      });
+    }
+
+    next();
+  };
+};
+
+// ── Admin check ───────────────────────────────────────────────────────────────
+const isAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Admins only.",
+    });
+  }
+  next();
+};
+
+// ── Approved client check ─────────────────────────────────────────────────────
+const isApprovedClient = (req, res, next) => {
+  if (req.user.role === "client" && !req.user.clientProfile?.isApproved) {
+    return res.status(403).json({
+      success: false,
+      message: "Your client account is pending admin approval.",
+    });
+  }
+  next();
+};
+
+// ── Approved partner check ────────────────────────────────────────────────────
+const isApprovedPartner = (req, res, next) => {
+  if (req.user.role === "partner" && !req.user.partnerProfile?.isApproved) {
+    return res.status(403).json({
+      success: false,
+      message: "Your partner account is pending admin approval.",
+    });
+  }
+  next();
+};
+
+// ── Self or Admin check ───────────────────────────────────────────────────────
+// Lets a user access their own resource OR admin access any resource
+const selfOrAdmin = (req, res, next) => {
+  const isAdmin = req.user?.role === "admin";
+  const isSelf = req.user?._id.toString() === req.params.id;
+
+  if (!isAdmin && !isSelf) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. You can only access your own data.",
+    });
+  }
+  next();
+};
+
 module.exports = {
-  generateJwtToken,
-  verifyToken,
-  decodeToken,
-  generateRefreshToken,
+  generateAccessToken,
+  verifyAccessToken,
+  decodeAccessToken,
   verifyRefreshToken,
-  JWT_CONFIG, // Export for testing purposes
+  generateRefreshToken,
+  hashToken,
+  generatePasswordResetToken,
+  isAccountLocked,
+  incrementLoginAttempts,
+  resetLoginAttempts,
+  isTokenIssuedBeforePasswordChange,
+  setTokenCookies,
+  clearTokenCookies,
+  authenticate,
+  optionalAuth,
+  authorize,
+  isAdmin,
+  isApprovedClient,
+  isApprovedPartner,
+  selfOrAdmin,
+  MAX_LOGIN_ATTEMPTS,
 };

@@ -9,7 +9,7 @@ const {
   isApprovedClient,
   isApprovedPartner,
   selfOrAdmin,
-} = require("../middleware/auth"); // your auth middleware
+} = require("../middleware/authMiddleware"); // your auth middleware
 
 const router = express.Router();
 

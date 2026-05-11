@@ -40,24 +40,18 @@ const connectDB = require("./database/db");
 connectDB();
 
 const userRoutes = require("./routes/userRoutes");
-// const paymentRoutes = require("./routes/paymentRoutes");
-// const notificationRoutes = require("./routes/notificationRoutes");
-
 app.use("/api/users", userRoutes);
-// app.use("/api/payments", paymentRoutes);
-// app.use("/api/notifications", notificationRoutes);
 
 const vehicleRoutes = require("./routes/vehicleRoutes");
 app.use("/api/vehicles", vehicleRoutes);
 
+const authRoutes = require("./routes/authRoutes");
+app.use("/api/auth", authRoutes);
+
 //Home page
 app.use("/", (req, res) => {
-  res.status(200).send("Home Page of Room On Rent Server");
+  res.status(200).send("Home Page of Baraat Wheels Server");
 });
-
-const authRoutes = require("./routes/authRoutes");
-// Routes
-app.use("/api/auth", authRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {

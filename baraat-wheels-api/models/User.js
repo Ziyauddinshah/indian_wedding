@@ -58,8 +58,8 @@ const userSchema = new mongoose.Schema(
       savedVehicles: [{ type: mongoose.Schema.Types.ObjectId, ref: "Vehicle" }],
     },
 
-    // ── Client (vehicle owner) fields ────────────
-    clientProfile: {
+    // ── Partner (vehicle owner) fields ────────────
+    partnerProfile: {
       businessName: { type: String },
       gstNumber: { type: String },
       panNumber: { type: String },
