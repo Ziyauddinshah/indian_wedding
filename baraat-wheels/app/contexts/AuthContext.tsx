@@ -12,20 +12,20 @@ export type User = {
   avatar?: string | null
 }
 
-type PartnerStatus = {
+type VerificationStatus = {
   verificationStatus: 'pending' | 'approved' | 'rejected' | null
   rejectionReason?: string
   submittedAt?: Date
 }
 
-// Add to AuthContextType
 type AuthContextType = {
   user: User | null
-  partnerStatus: PartnerStatus | null
+  userVerificationStatus: VerificationStatus | null
   isLoading: boolean
-  login: (userData: User, token: string, partnerStatusData?: PartnerStatus) => void
+  isReady: boolean // ✅ New: true after initial auth check completes
+  login: (userData: User, token: string, userVerificationStatus?: VerificationStatus) => void
   logout: () => void
-  updatePartnerStatus: (status: PartnerStatus) => void
+  updateUserVerificationStatus: (status: VerificationStatus) => void
   updateUser: (userData: Partial<User>) => void
 }
 
@@ -34,54 +34,75 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [partnerStatus, setPartnerStatus] = useState<PartnerStatus | null>(null)
+  const [isReady, setIsReady] = useState(false) // ✅ Prevents flash of login page
+  const [userVerificationStatus, setUserVerificationStatus] = useState<VerificationStatus | null>(null)
 
-  // Load user from localStorage on app start
   useEffect(() => {
-    const storedUser = localStorage.getItem('baraat_user')
-    const storedToken = localStorage.getItem('baraat_token')
+    const storedUser = localStorage.getItem('user')
+    const storedToken = localStorage.getItem('token')
+    const storedUserVerificationStatus = localStorage.getItem('user_verification_status')
     
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser))
+      if (storedUserVerificationStatus) {
+        setUserVerificationStatus(JSON.parse(storedUserVerificationStatus))
+      }
     }
-    setIsLoading(false)
-  }, [])
-  
-  const login = (userData: User, token: string, partnerStatusData?: PartnerStatus) => {
-    // ... existing code
-    setUser(userData)
-    localStorage.setItem('baraat_user', JSON.stringify(userData))
-    localStorage.setItem('baraat_token', token)
     
-    // Optional: Set cookie for server-side access
-    document.cookie = `baraat_token=${token}; path=/; max-age=2592000` // 30 days
-    document.cookie = `baraat_role=${userData.role}; path=/; max-age=2592000`
-    if (partnerStatusData) {
-      setPartnerStatus(partnerStatusData)
-      localStorage.setItem('baraat_partner_status', JSON.stringify(partnerStatusData))
+    setIsLoading(false)
+    setIsReady(true) // ✅ Auth check complete
+  }, [])
+
+  const login = (userData: User, token: string, userVerificationStatus?: VerificationStatus) => {
+    setUser(userData)
+    localStorage.setItem('user', JSON.stringify(userData))
+    localStorage.setItem('token', token)
+    
+    // Set cookies for middleware/server access
+    document.cookie = `token=${token}; path=/; max-age=2592000`
+    document.cookie = `role=${userData.role}; path=/; max-age=2592000`
+    
+    if (userVerificationStatus) {
+      setUserVerificationStatus(userVerificationStatus)
+      localStorage.setItem('user_verification_status', JSON.stringify(userVerificationStatus))
     }
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem('baraat_user')
-    localStorage.removeItem('baraat_token')
+    setUserVerificationStatus(null)
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
+    localStorage.removeItem('user_verification_status')
     
-    // Clear cookies
-    document.cookie = 'baraat_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
-    document.cookie = 'baraat_role=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+    document.cookie = 'role=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
   }
 
   const updateUser = (userData: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...userData }
       setUser(updatedUser)
-      localStorage.setItem('baraat_user', JSON.stringify(updatedUser))
+      localStorage.setItem('user', JSON.stringify(updatedUser))
     }
   }
 
+  const updateUserVerificationStatus = (status: VerificationStatus) => {
+    setUserVerificationStatus(status)
+    localStorage.setItem('user_verification_status', JSON.stringify(status))
+  }
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser, partnerStatus, updatePartnerStatus: setPartnerStatus }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isLoading, 
+      isReady,
+      login, 
+      logout, 
+      updateUser, 
+      userVerificationStatus, 
+      updateUserVerificationStatus 
+    }}>
       {children}
     </AuthContext.Provider>
   )

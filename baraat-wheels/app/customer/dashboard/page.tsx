@@ -173,6 +173,7 @@ import { Calendar, Car, Heart, User, Clock, Star } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import ProtectedRoute from '@/app/components/home/ProtectedRoute'
 
 interface Booking {
   _id: string
@@ -223,6 +224,7 @@ export default function CustomerDashboard() {
 
   // Redirect if not authenticated (fallback in case middleware fails)
   useEffect(() => {
+    console.log('Auth loading:', authLoading, 'User:', user)
     if (!authLoading && !user) {
       router.push('/login?callbackUrl=/customer/dashboard')
     }
@@ -311,7 +313,8 @@ export default function CustomerDashboard() {
     .slice(0, 3)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-amber-50 py-12">
+    <ProtectedRoute allowedRoles={['customer']}>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-amber-50 py-12">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Welcome Section */}
         <div className="mb-8">
@@ -451,5 +454,7 @@ export default function CustomerDashboard() {
         </div>
       </div>
     </div>
+    </ProtectedRoute>
+    
   )
 }

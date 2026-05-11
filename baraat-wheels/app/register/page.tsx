@@ -67,6 +67,14 @@ export default function RegisterPage() {
       gradient: 'from-emerald-600 to-teal-600',
       focusColor: 'emerald-500',
     },
+    {
+      type: 'admin' as UserType,
+      icon: '🛡️',
+      label: 'Admin',
+      description: 'Manage the platform',
+      gradient: 'from-violet-600 to-purple-600',
+      focusColor: 'violet-500',
+    },
   ]
 
   const currentType = userTypes.find(t => t.type === selectedType)!
@@ -101,10 +109,17 @@ export default function RegisterPage() {
     // Validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match')
+      setLoading(false)
       return
     }
     if (!formData.agreeToTerms) {
       setError('You must agree to the terms and conditions')
+      setLoading(false)
+      return
+    }
+    if (selectedType === 'admin' && !adminData.adminCode) {
+      setError('Admin authorization code is required')
+      setLoading(false)
       return
     }
 
@@ -117,6 +132,12 @@ export default function RegisterPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getFocusColor = () => {
+    if (selectedType === 'customer') return 'focus:border-indigo-500'
+    if (selectedType === 'partner') return 'focus:border-emerald-500'
+    return 'focus:border-violet-500'
   }
 
   return (
@@ -137,7 +158,7 @@ export default function RegisterPage() {
           </div>
 
           {/* User Type Selector */}
-          <div className="grid grid-cols-2 gap-2 mb-8 bg-gray-100 p-1.5 rounded-xl">
+          <div className="grid grid-cols-3 gap-2 mb-8 bg-gray-100 p-1.5 rounded-xl">
             {userTypes.map((type) => (
               <button
                 key={type.type}
@@ -163,6 +184,13 @@ export default function RegisterPage() {
               </div>
             </div>
           )}
+          {selectedType === 'admin' && (
+            <div className="mb-6 text-center">
+              <div className="inline-flex items-center px-4 py-2 bg-violet-50 rounded-full">
+                <span className="text-violet-700 font-medium">🔒 Restricted Access — Authorization Required</span>
+              </div>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -185,7 +213,7 @@ export default function RegisterPage() {
                     onChange={handleCustomerChange}
                     required
                     placeholder="Jane Smith"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                 </div>
 
@@ -198,7 +226,7 @@ export default function RegisterPage() {
                     onChange={handleCustomerChange}
                     required
                     placeholder="jane@example.com"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                 </div>
 
@@ -211,7 +239,7 @@ export default function RegisterPage() {
                     onChange={handleCustomerChange}
                     required
                     placeholder="+1 234 567 8900"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                 </div>
 
@@ -223,7 +251,7 @@ export default function RegisterPage() {
                     onChange={handleCustomerChange}
                     placeholder="Enter your full address"
                     rows={2}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors resize-none`}
                   />
                 </div>
 
@@ -237,7 +265,7 @@ export default function RegisterPage() {
                     required
                     placeholder="••••••••"
                     minLength={8}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                   <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
                 </div>
@@ -251,7 +279,7 @@ export default function RegisterPage() {
                     onChange={handleCustomerChange}
                     required
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                 </div>
               </div>
@@ -269,7 +297,7 @@ export default function RegisterPage() {
                     onChange={handlePartnerChange}
                     required
                     placeholder="Enter owner full name"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                 </div>
 
@@ -282,7 +310,7 @@ export default function RegisterPage() {
                     onChange={handlePartnerChange}
                     required
                     placeholder="Enter email address"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                 </div>
 
@@ -295,7 +323,7 @@ export default function RegisterPage() {
                     onChange={handlePartnerChange}
                     required
                     placeholder="Enter phone number"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                 </div>
 
@@ -308,7 +336,7 @@ export default function RegisterPage() {
                     required
                     placeholder="Enter street address, city, state, zip code"
                     rows={2}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors resize-none"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors resize-none`}
                   />
                 </div>
 
@@ -322,7 +350,7 @@ export default function RegisterPage() {
                     required
                     placeholder="••••••••"
                     minLength={8}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                   <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
                 </div>
@@ -336,7 +364,93 @@ export default function RegisterPage() {
                     onChange={handlePartnerChange}
                     required
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Admin Form */}
+            {selectedType === 'admin' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Full Name *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={adminData.name}
+                    onChange={handleAdminChange}
+                    required
+                    placeholder="Enter your full name"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Email Address *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={adminData.email}
+                    onChange={handleAdminChange}
+                    required
+                    placeholder="admin@company.com"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Phone Number *</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={adminData.phone}
+                    onChange={handleAdminChange}
+                    required
+                    placeholder="+1 234 567 8900"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Admin Authorization Code *</label>
+                  <input
+                    type="password"
+                    name="adminCode"
+                    value={adminData.adminCode}
+                    onChange={handleAdminChange}
+                    required
+                    placeholder="Enter admin code"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Contact your supervisor for the code</p>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Password *</label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={adminData.password}
+                    onChange={handleAdminChange}
+                    required
+                    placeholder="••••••••"
+                    minLength={8}
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">Confirm Password *</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={adminData.confirmPassword}
+                    onChange={handleAdminChange}
+                    required
+                    placeholder="••••••••"
+                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
                 </div>
               </div>
@@ -363,8 +477,8 @@ export default function RegisterPage() {
                       : handleAdminChange
                   }
                   required
-                  className={`w-4 h-4 border-gray-300 rounded focus:ring-2 mt-1`}
-                  style={{ accentColor: currentType.gradient.includes('indigo') ? '#6366f1' : currentType.gradient.includes('emerald') ? '#10b981' : '#3b82f6' }}
+                  className="w-4 h-4 border-gray-300 rounded focus:ring-2 mt-1"
+                  style={{ accentColor: currentType.gradient.includes('indigo') ? '#6366f1' : currentType.gradient.includes('emerald') ? '#10b981' : '#8b5cf6' }}
                 />
                 <span className="ml-3 text-sm text-gray-700">
                   I agree to the{' '}
@@ -380,6 +494,14 @@ export default function RegisterPage() {
                       {', and '}
                       <Link href="/partner-agreement" className={`font-medium bg-gradient-to-r ${currentType.gradient} bg-clip-text text-transparent`}>
                         Partner Agreement
+                      </Link>
+                    </>
+                  )}
+                  {selectedType === 'admin' && (
+                    <>
+                      {', and '}
+                      <Link href="/admin-policy" className={`font-medium bg-gradient-to-r ${currentType.gradient} bg-clip-text text-transparent`}>
+                        Admin Security Policy
                       </Link>
                     </>
                   )}
@@ -407,7 +529,7 @@ export default function RegisterPage() {
               disabled={loading}
               className={`w-full bg-gradient-to-r ${currentType.gradient} text-white py-3.5 px-6 rounded-xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
             >
-              {loading ? 'Creating Account...' : selectedType === 'partner' ? 'Register Partner' : 'Create Account'}
+              {loading ? 'Creating Account...' : selectedType === 'partner' ? 'Register Partner' : selectedType === 'admin' ? 'Register Admin' : 'Create Account'}
             </button>
           </form>
 
