@@ -9,21 +9,21 @@ const User = require("../models/User");
 // ─────────────────────────────────────────────────────────────
 const JWT_SECRET =
   process.env.JWT_SECRET || crypto.randomBytes(32).toString("hex");
-const JWT_ACCESS_EXPIRY = process.env.JWT_EXPIRES_IN || "15h"; // Short-lived access token
-const JWT_REFRESH_EXPIRY_SHORT = "7d"; // Normal refresh token
-const JWT_REFRESH_EXPIRY_LONG = "30d"; // Remember Me refresh token
-const RESET_TOKEN_EXPIRY = 60 * 60 * 1000; // 1 hour in milliseconds
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCK_TIME = 2 * 60 * 60 * 1000; // 2 hours lockout
-const SALT_ROUNDS = 12;
+const JWT_ACCESS_EXPIRY = process.env.JWT_ACCESS_EXPIRY || "15m"; // Short-lived access token
 const JWT_ISSUER = process.env.JWT_ISSUER || "your-app-name";
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE || "your-app-client";
+const JWT_REFRESH_EXPIRY_SHORT = process.env.JWT_REFRESH_EXPIRY_SHORT || "7d"; // Normal refresh token
+const JWT_REFRESH_EXPIRY_LONG = process.env.JWT_REFRESH_EXPIRY_LONG || "30d"; // Remember Me refresh token
+const RESET_TOKEN_EXPIRY = process.env.RESET_TOKEN_EXPIRY || 60 * 60 * 1000; // 1 hour in milliseconds
+const MAX_LOGIN_ATTEMPTS = process.env.MAX_LOGIN_ATTEMPTS || 5;
+const LOCK_TIME = process.env.LOCK_TIME || 2 * 60 * 60 * 1000; // 2 hours lockout
+const SALT_ROUNDS = process.env.SALT_ROUNDS || 12;
 
 /**
  * Generate Access Token (short-lived, contains user info)
  */
 const generateAccessToken = (user) => {
-  return jwt.sign(
+  const response = jwt.sign(
     {
       id: user.id,
       email: user.email,
@@ -39,6 +39,7 @@ const generateAccessToken = (user) => {
       algorithm: "HS256",
     },
   );
+  return response;
 };
 
 const verifyAccessToken = (req, res, next) => {
@@ -68,9 +69,9 @@ const verifyAccessToken = (req, res, next) => {
   const token = tokenParts[1];
   try {
     // Verify token
-    const decoded = jwt.verify(token, JWT_CONFIG.secretKey, {
-      issuer: JWT_CONFIG.issuer,
-      audience: JWT_CONFIG.audience,
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
       algorithms: ["HS256"],
     });
 

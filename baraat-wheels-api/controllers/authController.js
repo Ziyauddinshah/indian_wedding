@@ -24,10 +24,17 @@ const {
   MAX_LOGIN_ATTEMPTS,
 } = require("../middleware/authMiddleware");
 
+const bcrypt = require("bcryptjs");
+
 // ── Helper: send token response ──────────────────────────────
-const sendTokenResponse = (res, user, statusCode, rememberMe = false) => {
+const sendTokenResponse = (req, res, user, statusCode, rememberMe = false) => {
   const accessToken = generateAccessToken(user);
   const refreshData = generateRefreshToken(rememberMe);
+
+  // Ensure refreshTokens array exists
+  if (!user.refreshTokens) {
+    user.refreshTokens = [];
+  }
 
   // Store hashed refresh token
   const hashedRefresh = hashToken(refreshData.token);
@@ -92,59 +99,18 @@ const buildUserResponse = (user, includeProfiles = true) => {
 // ────────────────────────────────────────────────────────────
 const register = async (req, res) => {
   try {
-    const { name, phone, email, password, role } = req.body;
+    const {
+      name,
+      phone,
+      email,
+      password,
+      confirmPassword,
+      role,
+      address,
+      referralCode,
+    } = req.body;
 
-    // Prevent direct admin registration via API
-    if (role === "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin accounts cannot be created via registration.",
-      });
-    }
-
-    const existingUser = await User.findOne({
-      $or: [{ email }, { phone }],
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this email or phone already exists.",
-      });
-    }
-
-    const userData = { name, phone, email, password, role: role || "customer" };
-
-    // Attach role-specific default profile
-    if (role === "client") {
-      userData.clientProfile = {
-        businessName: req.body.businessName || "",
-        gstNumber: req.body.gstNumber || "",
-        panNumber: req.body.panNumber || "",
-        isApproved: false,
-        commissionRate: 15,
-      };
-    }
-
-    if (!role || role === "customer") {
-      userData.customerProfile = {
-        totalBookings: 0,
-        loyaltyPoints: 0,
-      };
-    }
-
-    const user = await User.create(userData);
-    sendTokenResponse(res, user, 201);
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-const register1 = async (req, res) => {
-  try {
-    const { name, phone, email, password, role } = req.body;
-
-    // Validation
+    // ── 1. Required field validation ─────────────────────────────────
     if (!name || !phone || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -152,117 +118,186 @@ const register1 = async (req, res) => {
       });
     }
 
-    // Prevent admin registration via API
-    if (role === "admin") {
-      return res.status(403).json({
+    // ── 2. Password confirmation check ─────────────────────────────
+    if (confirmPassword && password !== confirmPassword) {
+      return res.status(400).json({
         success: false,
-        message: "Admin accounts cannot be created via registration.",
+        message: "Passwords do not match.",
       });
     }
 
-    // Validate role
+    // ── 3. Password strength validation ────────────────────────────
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters.",
+      });
+    }
+
+    // ── 4. Role validation & normalization ─────────────────────────
     const validRoles = ["customer", "partner"];
-    const userRole = role || "customer";
+    let userRole = (role || "customer").toLowerCase().trim();
+
     if (!validRoles.includes(userRole)) {
       return res.status(400).json({
         success: false,
-        message: 'Role must be either "customer" or "partner".',
+        message: 'Role must be either "customer", or "partner".',
       });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({
+    // ── 5. Prevent direct admin registration ─────────────────────
+    if (userRole === "admin") {
+      return res.status(403).json({
         success: false,
-        message: "Password must be at least 6 characters.",
+        message: "Admin accounts cannot be created via public registration.",
       });
     }
 
-    // Check existing user
-    const existingEmail = db.findUserByEmail(email);
-    if (existingEmail) {
-      return res.status(400).json({
+    // ── 6. Admin code check (if somehow admin role passed) ─────────
+    if (userRole === "admin" && process.env.ADMIN_SECRET_CODE) {
+      if (adminCode !== process.env.ADMIN_SECRET_CODE) {
+        return res.status(403).json({
+          success: false,
+          message: "Invalid admin authorization code.",
+        });
+      }
+    }
+
+    // ── 7. Check existing user (email or phone) ────────────────────
+    const existingUser = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { phone }],
+    });
+
+    if (existingUser) {
+      const field =
+        existingUser.email === email.toLowerCase() ? "email" : "phone";
+      return res.status(409).json({
         success: false,
-        message: "User with this email already exists.",
+        message: `User with this ${field} already exists.`,
+        field,
       });
     }
 
-    const existingPhone = db.findUserByPhone(phone);
-    if (existingPhone) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this phone already exists.",
-      });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
-    // Build user data with role-specific profile
+    // ── 8. Build role-specific profile ─────────────────────────────
     const userData = {
-      name,
-      phone,
-      email: email.toLowerCase(),
-      password: hashedPassword,
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.toLowerCase().trim(),
+      password,
       role: userRole,
       isActive: true,
-      isVerified: true,
+      isVerified: false, // Require email verification
+      createdAt: new Date(),
+      lastLoginIp: req.ip,
+      device: req.headers["user-agent"] || "unknown",
     };
 
-    if (userRole === "partner") {
-      userData.partnerProfile = {
-        businessName: businessName || "",
-        gstNumber: gstNumber || "",
-        panNumber: panNumber || "",
-        isApproved: false, // Partners need admin approval
-        commissionRate: 15,
-        totalVehicles: 0,
-        totalEarnings: 0,
-        rating: 0,
-        documents: [],
-      };
-    }
-
+    // Customer profile
     if (userRole === "customer") {
       userData.customerProfile = {
         totalBookings: 0,
         loyaltyPoints: 0,
         favoriteVehicles: [],
-        addresses: [],
+        addresses: address ? [address] : [],
+        referralCode: referralCode || null,
       };
     }
 
-    const user = db.createUser(userData);
+    // Partner profile
+    if (userRole === "partner") {
+      // Validate partner-specific fields
+      // if (!businessName) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Business name is required for partner registration.",
+      //   });
+      // }
 
-    // Generate tokens (no remember me on register)
+      userData.partnerProfile = {
+        businessName: "",
+        gstNumber: "",
+        panNumber: "",
+        isApproved: false, // Requires admin approval
+        commissionRate: 15,
+        totalVehicles: 0,
+        totalEarnings: 0,
+        rating: 0,
+        documents: [],
+        verifiedAt: null,
+      };
+    }
+
+    // ── 9. Create user (password hashed via pre-save hook) ──────────
+    const user = await User.create(userData);
+
+    // ── 10. Generate tokens ────────────────────────────────────────
     const accessToken = generateAccessToken(user);
-    const refreshData = generateRefreshToken(false);
+    const refreshData = generateRefreshToken(false); // No remember me on register
+
     const hashedRefresh = hashToken(refreshData.token);
 
-    user.refreshTokens.push({
-      token: hashedRefresh,
-      createdAt: new Date(),
-      expiresAt: refreshData.expiresAt,
-      device: req.headers["user-agent"] || "unknown",
-      ip: req.ip,
-      rememberMe: false,
-    });
+    user.refreshTokens = [
+      {
+        token: hashedRefresh,
+        createdAt: new Date(),
+        expiresAt: refreshData.expiresAt,
+        device: req.headers["user-agent"] || "unknown",
+        ip: req.ip,
+        rememberMe: false,
+      },
+    ];
 
+    await user.save();
+
+    // ── 11. Set cookies ──────────────────────────────────────────
     setTokenCookies(res, accessToken, refreshData.token, false);
 
+    // ── 12. Send verification email (async, don't block) ───────
+    // sendVerificationEmail(user.email, user.name).catch(console.error);
+
+    // ── 13. Build response ───────────────────────────────────────
+    const userResponse = buildUserResponse(user);
+
+    // ── 14. Return success ─────────────────────────────────────────
+    const message =
+      userRole === "partner"
+        ? "Registration successful. Your partner account is pending admin approval. You will be notified once approved."
+        : "Registration successful. Please verify your email to activate your account.";
+
+    console.log(userResponse);
     res.status(201).json({
       success: true,
-      message:
-        userRole === "partner"
-          ? "Registration successful. Your partner account is pending admin approval."
-          : "Registration successful.",
+      message,
       token: accessToken,
-      user: buildUserResponse(user),
+      user: userResponse,
+      requiresVerification: true,
+      requiresApproval: userRole === "partner",
     });
   } catch (error) {
-    console.error("Register error:", error);
+    console.error("Registration error:", error);
+
+    // Handle MongoDB duplicate key error
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(409).json({
+        success: false,
+        message: `User with this ${field} already exists.`,
+        field,
+      });
+    }
+
+    // Handle validation errors
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({
+        success: false,
+        message: messages.join(", "),
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: error.message || "Registration failed.",
+      message: error.message || "Registration failed. Please try again.",
     });
   }
 };
@@ -273,7 +308,8 @@ const register1 = async (req, res) => {
 // ────────────────────────────────────────────────────────────
 const login = async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { email, password, role, rememberMe, adminCode } = req.body;
+
     // ── 1. Basic field validation ──────────────────────────────────
     if (!email || !password) {
       return res.status(400).json({
@@ -283,7 +319,6 @@ const login = async (req, res) => {
     }
 
     const expectedUserRole = role;
-
     if (!expectedUserRole) {
       return res.status(400).json({
         success: false,
@@ -291,7 +326,7 @@ const login = async (req, res) => {
       });
     }
 
-    // ── 3. Find user (include role + profiles for checks) ──────────
+    // ── 2. Find user (include role + profiles for checks) ──────────
     const user = await User.findOne({
       email: email,
       role: expectedUserRole,
@@ -303,113 +338,15 @@ const login = async (req, res) => {
       partnerProfile: 1,
       name: 1,
       email: 1,
+      phone: 1,
+      isVerified: 1,
+      loginAttempts: 1,
+      lockUntil: 1,
+      refreshTokens: 1,
+      lastLogin: 1,
     });
 
-    // ── 4. Wrong email or wrong password ───────────────────────────
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password.",
-      });
-    }
-
-    // ── 5. Role mismatch — right password, wrong tab ───────────────
-    if (user.role !== expectedUserRole) {
-      return res.status(403).json({
-        success: false,
-        message: `This account is registered as "${user.role}". Please select the "${user.role}" tab and try again.`,
-      });
-    }
-
-    // ── 6. Deactivated account ─────────────────────────────────────
-    if (!user.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been deactivated. Please contact support.",
-      });
-    }
-
-    // ── 7. Admin login — check adminCode if you use one ───────────
-    if (user.role === "admin") {
-      const { adminCode } = req.body;
-      const ADMIN_SECRET = process.env.ADMIN_SECRET_CODE;
-
-      if (ADMIN_SECRET && adminCode !== ADMIN_SECRET) {
-        return res.status(403).json({
-          success: false,
-          message: "Invalid admin code.",
-        });
-      }
-    }
-
-    // ── 8. Partner/Client pending approval — allow login but warn ──
-    const isPendingPartner =
-      user.role === "partner" && !user.partnerProfile?.isApproved;
-
-    if (isPendingPartner) {
-      const token = generateAccessToken(
-        user._id,
-        user.email,
-        user.role,
-        user.isActive,
-      );
-
-      // Build a clean user object for the frontend
-      const userPayload = {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role, // send 'customer' not 'client'
-        isApproved: false,
-        verificationStatus: user.isVerified ? "approved" : "pending",
-      };
-
-      return res.status(200).json({
-        success: true,
-        message: "Login successful. Your account is pending admin approval.",
-        token,
-        user: userPayload,
-      });
-    }
-
-    // ── 9. All checks passed — send token response ─────────────────
-    // Attach the frontend-friendly role before sending
-    user._frontendRole = user.role;
-    sendTokenResponse(user, 200, res);
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Server error. Please try again.",
-    });
-  }
-};
-
-const login1 = async (req, res) => {
-  try {
-    const { email, password, role, rememberMe, adminCode } = req.body;
-
-    // Basic validation
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide email and password.",
-      });
-    }
-
-    const expectedUserRole = role;
-    if (!expectedUserRole) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid account type selected.",
-      });
-    }
-
-    // Find user
-    const user = db.findUserByEmail(email);
-
-    // Generic error for wrong email OR wrong password (security)
+    // ── 3. Generic error for wrong email OR wrong password ─────────
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -417,7 +354,7 @@ const login1 = async (req, res) => {
       });
     }
 
-    // Check account lockout
+    // ── 4. Check account lockout ───────────────────────────────────
     if (isAccountLocked(user)) {
       const remainingMinutes = Math.ceil((user.lockUntil - Date.now()) / 60000);
       return res.status(423).json({
@@ -427,7 +364,7 @@ const login1 = async (req, res) => {
       });
     }
 
-    // Verify password
+    // ── 5. Verify password (with login attempt tracking) ──────────
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       incrementLoginAttempts(user);
@@ -443,7 +380,7 @@ const login1 = async (req, res) => {
       });
     }
 
-    // Role mismatch - right password, wrong portal/tab
+    // ── 6. Role mismatch — right password, wrong tab ───────────────
     if (user.role !== expectedUserRole) {
       const correctTab = USER_ROLES[user.role] || user.role;
       return res.status(403).json({
@@ -452,7 +389,7 @@ const login1 = async (req, res) => {
       });
     }
 
-    // Check if account is active
+    // ── 7. Deactivated account ─────────────────────────────────────
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
@@ -460,7 +397,7 @@ const login1 = async (req, res) => {
       });
     }
 
-    // Admin-specific validation
+    // ── 8. Admin login — check adminCode ──────────────────────────
     if (user.role === "admin") {
       const ADMIN_SECRET = process.env.ADMIN_SECRET_CODE;
       if (ADMIN_SECRET && adminCode !== ADMIN_SECRET) {
@@ -471,23 +408,29 @@ const login1 = async (req, res) => {
       }
     }
 
-    // Reset login attempts on success
+    // ── 9. Reset login attempts on success ────────────────────────
     resetLoginAttempts(user);
 
-    // Update last login
+    // ── 10. Update last login info ────────────────────────────────
     user.lastLogin = new Date();
     user.lastLoginIp = req.ip;
+    await user.save();
 
-    // Check partner approval status
+    // ── 11. Partner pending approval — allow login but warn ───────
     const isPendingPartner =
       user.role === "partner" && !user.partnerProfile?.isApproved;
 
     if (isPendingPartner) {
-      // Allow login but flag as pending
       const accessToken = generateAccessToken(user);
       const refreshData = generateRefreshToken(false); // No remember me for pending
 
       const hashedRefresh = hashToken(refreshData.token);
+
+      // Clean old refresh tokens
+      if (user.refreshTokens.length > 5) {
+        user.refreshTokens = user.refreshTokens.slice(-5);
+      }
+
       user.refreshTokens.push({
         token: hashedRefresh,
         createdAt: new Date(),
@@ -496,21 +439,33 @@ const login1 = async (req, res) => {
         ip: req.ip,
         rememberMe: false,
       });
+      await user.save();
 
       setTokenCookies(res, accessToken, refreshData.token, false);
+
+      // Build user response
+      const userPayload = {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        isApproved: false,
+        verificationStatus: user.isVerified ? "approved" : "pending",
+      };
 
       return res.status(200).json({
         success: true,
         message:
           "Login successful. Your partner account is pending admin approval.",
         token: accessToken,
-        user: buildUserResponse(user),
+        user: userPayload,
         isApproved: false,
         pendingApproval: true,
       });
     }
 
-    // Standard successful login
+    // ── 12. Standard successful login ─────────────────────────────
     // Clean old refresh tokens
     if (user.refreshTokens.length > 5) {
       user.refreshTokens = user.refreshTokens.slice(-5);
@@ -528,6 +483,7 @@ const login1 = async (req, res) => {
       ip: req.ip,
       rememberMe: rememberMe === true,
     });
+    await user.save();
 
     setTokenCookies(res, accessToken, refreshData.token, rememberMe === true);
 
@@ -703,38 +659,35 @@ const logoutAll = async (req, res) => {
 // @route   GET /api/users/me
 // @access  Private (all roles)
 // ────────────────────────────────────────────────────────────
-const getMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
-    res.status(200).json({ success: true, user });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
 // ============================================
 // GET CURRENT USER
 // ============================================
-const getMe1 = async (req, res) => {
-  const user = db.findUserById(req.user.id);
+const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
 
-  if (!user) {
-    return res.status(404).json({
-      success: false,
-      message: "User not found.",
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      user: buildUserResponse(user),
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
-
-  res.status(200).json({
-    success: true,
-    user: buildUserResponse(user),
-  });
 };
 
 // ────────────────────────────────────────────────────────────
 // @route   PUT /api/users/update-profile
 // @access  Private (all roles)
 // ────────────────────────────────────────────────────────────
+// ============================================
+// UPDATE PROFILE
+// ============================================
 const updateProfile = async (req, res) => {
   try {
     const allowedFields = ["name", "email", "phone", "address", "profileImage"];
@@ -750,25 +703,6 @@ const updateProfile = async (req, res) => {
       { new: true, runValidators: true },
     );
 
-    res.status(200).json({ success: true, user });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// ============================================
-// UPDATE PROFILE
-// ============================================
-const updateProfile1 = async (req, res) => {
-  try {
-    const allowedFields = ["name", "phone", "email", "address", "profileImage"];
-    const updates = {};
-
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) updates[field] = req.body[field];
-    });
-
-    const user = db.findUserById(req.user.id);
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -784,10 +718,7 @@ const updateProfile1 = async (req, res) => {
       user: buildUserResponse(user),
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || "Profile update failed.",
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -795,32 +726,11 @@ const updateProfile1 = async (req, res) => {
 // @route   PUT /api/users/change-password
 // @access  Private (all roles)
 // ────────────────────────────────────────────────────────────
-const changePassword = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    const user = await User.findById(req.user._id).select("+password");
-
-    if (!(await user.comparePassword(currentPassword))) {
-      return res.status(401).json({
-        success: false,
-        message: "Current password is incorrect.",
-      });
-    }
-
-    user.password = newPassword;
-    await user.save();
-
-    sendTokenResponse(user, 200, res);
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
 // ============================================
 // CHANGE PASSWORD (Logged-in user)
 // ============================================
-const changePassword1 = async (req, res) => {
+
+const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
@@ -838,7 +748,10 @@ const changePassword1 = async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select("+password");
+
+    user.password = newPassword;
+    await user.save();
 
     const isCurrentValid = await bcrypt.compare(currentPassword, user.password);
     if (!isCurrentValid) {
@@ -864,11 +777,13 @@ const changePassword1 = async (req, res) => {
     user.refreshTokens = [];
     clearTokenCookies(res);
 
-    res.status(200).json({
-      success: true,
-      message:
-        "Password changed successfully. Please log in again with your new password.",
-    });
+    sendTokenResponse(user, 200, res);
+
+    // res.status(200).json({
+    //   success: true,
+    //   message:
+    //     "Password changed successfully. Please log in again with your new password.",
+    // });
   } catch (error) {
     res.status(500).json({
       success: false,
