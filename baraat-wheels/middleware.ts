@@ -1,13 +1,12 @@
 // middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify, JWTPayload } from 'jose';
-import { authApi } from './app/lib/api';
 
 // ─────────────────────────────────────────────
 //  CONFIGURATION
 // ─────────────────────────────────────────────
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
+const JWT_SECRET = process.env.JWT_SECRET || 'barraat-wheels-secret-key';
 
 // ── PUBLIC ROUTES ────────────────────────────
 // No authentication required - anyone can access
@@ -140,16 +139,14 @@ const USER_ROLE: Record<string, string> = {
  */
 async function verifyToken(token: string): Promise<TokenPayload | null> {
   try {
-    const response = await authApi.verifyTokenWithAPI(token);
-    console.log(response);
-    const payload = response.data.user as TokenPayload;
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const { payload } = await jwtVerify(token, secret);
+    console.log(payload);
     const p = payload as TokenPayload;
-    
     if (!p.id && p._id) p.id = String(p._id);
     if (p.role) {
       p.role = (USER_ROLE[p.role] ?? p.role) as TokenPayload['role'];
     }
-    console.log(`Token verified for user: ${p.email} with role: ${p.role}`);
     return p;
   } catch {
     console.error('Failed to verify token');
@@ -254,7 +251,30 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const token = cookieToken ?? bearerToken ?? null;
 
   // 3. Verify token if present
-  const payload = token ? await verifyToken(token) : null;
+  let payload: TokenPayload | null = null;
+
+  if (token) {
+    try {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+      const { payload: verifiedPayload } = await jwtVerify(token, secret, {
+        issuer: 'baraat-wheels',
+        audience: 'baraat-wheels-users',
+        // FIX 3: Add clock tolerance to handle minor clock skew between client/server
+        clockTolerance: 60, // 60 seconds grace period
+      });
+      
+      payload = verifiedPayload as TokenPayload;
+      
+      if (!payload.id && payload._id) payload.id = String(payload._id);
+      if (payload.role) {
+        payload.role = (USER_ROLE[payload.role] ?? payload.role) as TokenPayload['role'];
+      }
+    } catch (err) {
+      // FIX 4: Log the actual error for debugging — don't swallow it silently
+      console.error('Token verification failed:', err);
+      payload = null;}
+  }
+
   const isAuthenticated = !!payload;
 
   // 4. PUBLIC ROUTE HANDLING
@@ -262,19 +282,19 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     // If user is logged in and hits /login or /register, redirect to dashboard
     if (isAuthenticated && (pathname === '/login' || pathname === '/register')) {
       // Check if account is active
-      if (payload.isActive === false) {
+      if (payload?.isActive === false) {
         console.log(`Redirecting to deactivated account page from ${request.nextUrl.pathname}`);
         return NextResponse.redirect(new URL('/account-deactivated', request.url));
       }
       
       // Check partner approval
-      if (payload.role === 'partner' && payload.isApproved === false) {
+      if (payload?.role === 'partner' && payload.isApproved === false) {
         console.log(`Redirecting to pending approval from ${request.nextUrl.pathname}`);
         return redirectToPendingApproval(request);
       }
       
       console.log(`Redirecting to dashboard from ${request.nextUrl.pathname}`);
-      return redirectToDashboard(request, payload.role);
+      return redirectToDashboard(request, payload?.role || "admin");
     }
     
     // Allow access to public routes
@@ -303,13 +323,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
 
     // 6b. Account deactivated
-    if (payload.isActive === false) {
+    if (payload?.isActive === false) {
       return NextResponse.redirect(new URL('/account-deactivated', request.url));
     }
 
     // 6c. Role check
     if (protection.roles.length > 0) {
-      const hasAccess = protection.roles.includes(payload.role);
+      const hasAccess = protection.roles.includes(payload?.role || "");
       
       if (!hasAccess) {
         // Logged in but wrong role → unauthorized
@@ -320,8 +340,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     // 6d. Partner approval check for partner routes
     if (
       pathname.startsWith('/partner') &&
-      payload.role === 'partner' &&
-      payload.isApproved === false &&
+      payload?.role === 'partner' &&
+      payload?.isApproved === false &&
       pathname !== '/partner/pending-approval'
     ) {
       return redirectToPendingApproval(request);
@@ -329,10 +349,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     // 6e. Add user context headers for downstream use
     const response = NextResponse.next();
-    response.headers.set('x-user-id', payload.id ?? '');
-    response.headers.set('x-user-role', payload.role ?? '');
-    response.headers.set('x-user-email', payload.email ?? '');
-    response.headers.set('x-user-approved', String(payload.isApproved ?? true));
+    response.headers.set('x-user-id', payload?.id ?? '');
+    response.headers.set('x-user-role', payload?.role ?? '');
+    response.headers.set('x-user-email', payload?.email ?? '');
+    response.headers.set('x-user-approved', String(payload?.isApproved ?? true));
     
     return response;
   }
@@ -344,10 +364,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // 8. Default: authenticated user accessing unmatched route
   const response = NextResponse.next();
-  response.headers.set('x-user-id', payload.id ?? '');
-  response.headers.set('x-user-role', payload.role ?? '');
+  response.headers.set('x-user-id', payload?.id ?? '');
+    response.headers.set('x-user-role', payload?.role ?? '');
+    response.headers.set('x-user-email', payload?.email ?? '');
+    response.headers.set('x-user-approved', String(payload?.isApproved ?? true));
   return response;
 }
+
 
 // ─────────────────────────────────────────────
 //  MATCHER CONFIGURATION

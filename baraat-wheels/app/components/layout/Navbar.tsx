@@ -11,15 +11,15 @@ export default function Navbar() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const { user, logout } = useAuth()
 
+  // Guard against undefined name
   const getUserInitials = () => {
-    if (!user) return ''
+    if (!user?.name) return ''
     return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
   const getNavLinks = () => {
     const commonLinks = [{ name: 'Browse Vehicles', href: '/vehicles' }]
-    
-    if (user) {
+    if (user?.role) {  // FIX: Optional chaining
       if (user.role === 'customer') {
         return [
           ...commonLinks,
@@ -45,7 +45,7 @@ export default function Navbar() {
   }
 
   const getUserMenuItems = () => {
-    if (!user) return []
+    if (!user?.role) return []  // FIX: Optional chaining
     if (user.role === 'customer') {
       return [
         { label: 'Dashboard', href: '/customer/dashboard', icon: Calendar },
@@ -74,7 +74,7 @@ export default function Navbar() {
   const handleLogout = () => {
     logout()
     setIsUserMenuOpen(false)
-    window.location.href = '/' // Redirect to home
+    window.location.href = '/'
   }
 
   const navLinks = getNavLinks()
@@ -131,10 +131,10 @@ export default function Navbar() {
                   className="flex items-center space-x-3 focus:outline-none group"
                 >
                   <div className="relative">
-                    {user.avatar ? (
+                    {user.avatar ? (  // FIX: user.avatar could be undefined/null
                       <img
                         src={user.avatar}
-                        alt={user.name}
+                        alt={user.name || 'User'}  // FIX: Fallback alt
                         className="h-10 w-10 rounded-full object-cover border-2 border-yellow-400"
                       />
                     ) : (
@@ -154,15 +154,15 @@ export default function Navbar() {
                       <div className="px-4 py-4 bg-gradient-to-r from-amber-50 to-yellow-50 border-b border-gray-100">
                         <div className="flex items-center space-x-3">
                           {user.avatar ? (
-                            <img src={user.avatar} alt={user.name} className="h-12 w-12 rounded-full object-cover" />
+                            <img src={user.avatar} alt={user.name || 'User'} className="h-12 w-12 rounded-full object-cover" />
                           ) : (
                             <div className="h-12 w-12 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xl">
                               {getUserInitials()}
                             </div>
                           )}
                           <div>
-                            <p className="font-bold text-gray-900">{user.name}</p>
-                            <p className="text-sm text-gray-500">{user.email}</p>
+                            <p className="font-bold text-gray-900">{user.name || 'User'}</p>  {/* FIX */}
+                            <p className="text-sm text-gray-500">{user.email || ''}</p>  {/* FIX */}
                             <p className="text-xs text-amber-600 capitalize mt-1">✨ {user.role}</p>
                           </div>
                         </div>
@@ -234,15 +234,15 @@ export default function Navbar() {
                   <>
                     <div className="flex items-center space-x-3 px-4 py-3 bg-white/10 rounded-xl mb-4">
                       {user.avatar ? (
-                        <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full" />
+                        <img src={user.avatar} alt={user.name || 'User'} className="h-10 w-10 rounded-full" />
                       ) : (
                         <div className="h-10 w-10 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 flex items-center justify-center text-[#8B0000] font-bold">
                           {getUserInitials()}
                         </div>
                       )}
                       <div>
-                        <p className="text-white font-bold">{user.name}</p>
-                        <p className="text-yellow-200 text-sm">{user.email}</p>
+                        <p className="text-white font-bold">{user.name || 'User'}</p>
+                        <p className="text-yellow-200 text-sm">{user.email || ''}</p>
                       </div>
                     </div>
                     

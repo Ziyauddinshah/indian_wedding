@@ -424,7 +424,9 @@ export default function LoginPage() {
 
   // Auto‑redirect if already logged in
   useEffect(() => {
+    console.log('Auth state changed. User:', user, 'isReady:', isReady)
     if (isReady && user) {
+      console.log('User is already logged in:', user)
       router.push('/customer/dashboard'); // or role-based redirect
     }
   }, [user, isReady, router]);
@@ -452,6 +454,13 @@ export default function LoginPage() {
       }
 
       const response = await authApi.login(payload)
+
+      if(response?.status !== 200 && !response?.data?.success) {
+        setError(getApiError(response) || 'Login failed. Please check your credentials.')
+        setLoading(false)
+        return
+      }
+      
       const { user, token } = response?.data
       console.log('API response:', response)
       
@@ -502,15 +511,16 @@ export default function LoginPage() {
         avatar: user.avatar,
         isApproved: user.isApproved,
       }
-      login(userData, token, { verificationStatus: "pending" })
+
+      console.log('Logging in user:', userData)
+      login(userData, { verificationStatus: user.isApproved ? 'approved' : 'pending' })
       // Redirect
       const redirectParam = searchParams.get('redirect')
       const destination = redirectParam?.startsWith('/') && !redirectParam.includes('//')
         ? redirectParam
         : ROLE_REDIRECT[user.role]
-
       router.push(destination)
-
+      setLoading(false)
     } catch (err) {
       console.error('Login error:', err)
       setError(getApiError(err) || 'Invalid credentials. Please try again.')

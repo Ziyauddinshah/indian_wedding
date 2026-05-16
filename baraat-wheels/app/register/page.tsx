@@ -4,8 +4,9 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authApi } from '../lib/api';
+import { CustomerPayload, PartnerPayload, AdminPayload, RegisterPayload } from '../model/User';
 
-type UserType = 'customer' | 'partner' | 'admin'
+type UserType = 'customer' | 'partner'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -14,7 +15,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
 
   // Customer form data
-  const [customerData, setCustomerData] = useState({
+  const [customerData, setCustomerData] = useState<CustomerPayload>({
     name: '',
     email: '',
     phone: '',
@@ -23,11 +24,11 @@ export default function RegisterPage() {
     confirmPassword: '',
     agreeToTerms: false,
     newsletter: false,
-    userType: 'customer' as UserType,
+    role: 'customer',
   })
 
   // Partner form data
-  const [partnerData, setPartnerData] = useState({
+  const [partnerData, setPartnerData] = useState<PartnerPayload>({
     name: '',
     email: '',
     phone: '',
@@ -35,19 +36,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     agreeToTerms: false,
-    userType: 'partner' as UserType,
-  })
-
-  // Admin form data
-  const [adminData, setAdminData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    adminCode: '',
-    password: '',
-    confirmPassword: '',
-    agreeToTerms: false,
-    userType: 'admin' as UserType,
+    role: 'partner',
   })
 
   const userTypes = [
@@ -66,15 +55,7 @@ export default function RegisterPage() {
       description: 'Business account',
       gradient: 'from-emerald-600 to-teal-600',
       focusColor: 'emerald-500',
-    },
-    {
-      type: 'admin' as UserType,
-      icon: '🛡️',
-      label: 'Admin',
-      description: 'Manage the platform',
-      gradient: 'from-violet-600 to-purple-600',
-      focusColor: 'violet-500',
-    },
+    }
   ]
 
   const currentType = userTypes.find(t => t.type === selectedType)!
@@ -91,20 +72,14 @@ export default function RegisterPage() {
     setPartnerData({ ...partnerData, [name]: type === 'checkbox' ? checked : value })
   }
 
-  const handleAdminChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, type, checked, value } = e.target
-    setAdminData({ ...adminData, [name]: type === 'checkbox' ? checked : value })
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
-    let formData
+    let formData: RegisterPayload
     if (selectedType === 'customer') formData = customerData
-    else if (selectedType === 'partner') formData = partnerData
-    else formData = adminData
+    else formData = partnerData
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
@@ -117,16 +92,11 @@ export default function RegisterPage() {
       setLoading(false)
       return
     }
-    if (selectedType === 'admin' && !adminData.adminCode) {
-      setError('Admin authorization code is required')
-      setLoading(false)
-      return
-    }
 
     try {
       const response = await authApi.register(formData);
       console.log('API response:', response?.data);
-      router.push('/login')
+      // router.push('/login')
     } catch (err) {
       setError('Registration failed. Please try again.')
     } finally {
@@ -158,7 +128,7 @@ export default function RegisterPage() {
           </div>
 
           {/* User Type Selector */}
-          <div className="grid grid-cols-3 gap-2 mb-8 bg-gray-100 p-1.5 rounded-xl">
+          <div className="grid grid-cols-2 gap-2 mb-8 bg-gray-100 p-1.5 rounded-xl">
             {userTypes.map((type) => (
               <button
                 key={type.type}
@@ -181,13 +151,6 @@ export default function RegisterPage() {
             <div className="mb-6 text-center">
               <div className="inline-flex items-center px-4 py-2 bg-emerald-50 rounded-full">
                 <span className="text-emerald-700 font-medium">🎉 30 Days Free Trial</span>
-              </div>
-            </div>
-          )}
-          {selectedType === 'admin' && (
-            <div className="mb-6 text-center">
-              <div className="inline-flex items-center px-4 py-2 bg-violet-50 rounded-full">
-                <span className="text-violet-700 font-medium">🔒 Restricted Access — Authorization Required</span>
               </div>
             </div>
           )}
@@ -370,92 +333,6 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* Admin Form */}
-            {selectedType === 'admin' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Full Name *</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={adminData.name}
-                    onChange={handleAdminChange}
-                    required
-                    placeholder="Enter your full name"
-                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Email Address *</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={adminData.email}
-                    onChange={handleAdminChange}
-                    required
-                    placeholder="admin@company.com"
-                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Phone Number *</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={adminData.phone}
-                    onChange={handleAdminChange}
-                    required
-                    placeholder="+1 234 567 8900"
-                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Admin Authorization Code *</label>
-                  <input
-                    type="password"
-                    name="adminCode"
-                    value={adminData.adminCode}
-                    onChange={handleAdminChange}
-                    required
-                    placeholder="Enter admin code"
-                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Contact your supervisor for the code</p>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Password *</label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={adminData.password}
-                    onChange={handleAdminChange}
-                    required
-                    placeholder="••••••••"
-                    minLength={8}
-                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">Confirm Password *</label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={adminData.confirmPassword}
-                    onChange={handleAdminChange}
-                    required
-                    placeholder="••••••••"
-                    className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
-                  />
-                </div>
-              </div>
-            )}
-
             {/* Terms and Conditions */}
             <div className="space-y-3 mb-6">
               <label className="flex items-start cursor-pointer">
@@ -467,15 +344,14 @@ export default function RegisterPage() {
                       ? customerData.agreeToTerms
                       : selectedType === 'partner'
                       ? partnerData.agreeToTerms
-                      : adminData.agreeToTerms
+                      : false
                   }
                   onChange={
                     selectedType === 'customer'
                       ? handleCustomerChange
                       : selectedType === 'partner'
                       ? handlePartnerChange
-                      : handleAdminChange
-                  }
+                      : undefined}
                   required
                   className="w-4 h-4 border-gray-300 rounded focus:ring-2 mt-1"
                   style={{ accentColor: currentType.gradient.includes('indigo') ? '#6366f1' : currentType.gradient.includes('emerald') ? '#10b981' : '#8b5cf6' }}
@@ -494,14 +370,6 @@ export default function RegisterPage() {
                       {', and '}
                       <Link href="/partner-agreement" className={`font-medium bg-gradient-to-r ${currentType.gradient} bg-clip-text text-transparent`}>
                         Partner Agreement
-                      </Link>
-                    </>
-                  )}
-                  {selectedType === 'admin' && (
-                    <>
-                      {', and '}
-                      <Link href="/admin-policy" className={`font-medium bg-gradient-to-r ${currentType.gradient} bg-clip-text text-transparent`}>
-                        Admin Security Policy
                       </Link>
                     </>
                   )}
@@ -529,7 +397,7 @@ export default function RegisterPage() {
               disabled={loading}
               className={`w-full bg-gradient-to-r ${currentType.gradient} text-white py-3.5 px-6 rounded-xl font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
             >
-              {loading ? 'Creating Account...' : selectedType === 'partner' ? 'Register Partner' : selectedType === 'admin' ? 'Register Admin' : 'Create Account'}
+              {loading ? 'Creating Account...' : selectedType === 'partner' ? 'Register Partner' : 'Create Account'}
             </button>
           </form>
 

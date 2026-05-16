@@ -83,38 +83,7 @@ export default api;
 //  4. AUTH APIs
 // ─────────────────────────────────────────────
 
-type UserType = 'customer' | 'partner' | 'admin'
-
-export interface LoginPayload {
-  email: string;
-  password: string;
-  role: UserType;
-  rememberMe: boolean;
-  adminCode?: string | undefined; 
-}
-
-export interface RegisterPayload {
-  name: string;
-  email: string;
-  password: string;
-  phone: string;
-  role?: 'customer' | 'partner';
-}
-
-export interface AuthResponse {
-  success: boolean;
-  token: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    role: string;
-    avatar: string;
-    isActive: boolean;
-    isApproved?: boolean;
-  };
-}
+import { LoginPayload, RegisterPayload, AuthResponse } from '../model/User';
 
 export interface TokenPayload {
   success: boolean;
@@ -132,13 +101,13 @@ export const authApi = {
     api.post<AuthResponse>('http://localhost:5000/api/users/login', data),
 
   register: (data: RegisterPayload) =>
-    api.post<AuthResponse>('http://localhost:5000/api/auth/register', data),
+    api.post<AuthResponse>('http://localhost:5000/api/users/register', data),
 
   logout: () =>
-    api.post('http://localhost:5000/api/auth/logout'),
+    api.post('http://localhost:5000/api/users/logout'),
 
   getMe: () =>
-    api.get<{ user: AuthResponse['user'] }>('http://localhost:5000/api/auth/me'),
+    api.get<{ user: AuthResponse['user'] }>('http://localhost:5000/api/users/me'),
 
   verifyTokenWithAPI: (token: string) =>
     api.get<TokenPayload>('http://localhost:5000/api/users/verify-token', {
@@ -146,6 +115,8 @@ export const authApi = {
         authorization: "Bearer " + token,
       },
     }),
+  getUserById: (id: string) =>
+    api.get<{ user: AuthResponse['user'] }>(`http://localhost:5000/api/users/${id}`),
 };
 
 // ─────────────────────────────────────────────

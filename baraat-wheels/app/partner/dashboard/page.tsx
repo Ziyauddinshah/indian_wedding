@@ -1,9 +1,13 @@
+'use client';
 import DashboardStats from '@/app/components/partner/DashboardStats';
 import RecentBookings from '@/app/components/partner/RecentBookings';
 import QuickActions from '@/app/components/partner/QuickActions';
 import PerformanceChart from '@/app/components/partner/PerformanceChart';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 export default function PartnerDashboard() {
+  const { user,isLoading } = useAuth();
+  if (isLoading) return <div>Loading...</div>;
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
