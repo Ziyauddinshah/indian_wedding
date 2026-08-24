@@ -10,6 +10,9 @@ import {
   Sparkles, BarChart3, RefreshCw, CheckSquare
 } from 'lucide-react';
 import BookingDetailsModal from '@/app/components/partner/BookingDetailsModel';
+import axios, { type AxiosResponse } from 'axios';
+
+
 
 const bookingsData = [
   {
@@ -265,6 +268,114 @@ const bookingsData = [
     color: 'from-rose-500 to-red-500',
   },
 ];
+
+// const bookingsData = []; // Initialize as empty array
+
+useEffect(() => {
+  // Fetch bookings data from API if needed
+  const fetchBookings = axios.get('http://localhost:5000/api/vehicles/partner/booking-stats/432557');
+  console.log('Fetched bookings data:', fetchBookings);
+  // bookingsData.push(fetchBookings); // Add fetched data to bookingsData array
+  if(fetchBookings) {
+    console.log('Fetched bookings data:', fetchBookings);
+  }
+}, []);
+
+
+// db.bookings.aggregate([
+//   {
+//     // Lookup Vehicle details
+//     $lookup: {
+//       from: "vehicles",
+//       localField: "vehicleId",
+//       foreignField: "_id",
+//       as: "vehicleDetails"
+//     }
+//   },
+//   {
+//     // Lookup Payment details
+//     $lookup: {
+//       from: "payments",
+//       localField: "paymentId",
+//       foreignField: "_id",
+//       as: "paymentDetails"
+//     }
+//   },
+//   {
+//     // Lookup User (Customer) details
+//     $lookup: {
+//       from: "users",
+//       localField: "userId",
+//       foreignField: "_id",
+//       as: "userDetails"
+//     }
+//   },
+//   {
+//     // Lookup Partner (Driver) details
+//     $lookup: {
+//       from: "users",
+//       localField: "partnerId",
+//       foreignField: "_id",
+//       as: "partnerDetails"
+//     }
+//   },
+//   {
+//     // Unwind arrays (convert to objects)
+//     $addFields: {
+//       vehicleDetails: { $arrayElemAt: ["$vehicleDetails", 0] },
+//       paymentDetails: { $arrayElemAt: ["$paymentDetails", 0] },
+//       userDetails: { $arrayElemAt: ["$userDetails", 0] },
+//       partnerDetails: { $arrayElemAt: ["$partnerDetails", 0] }
+//     }
+//   },
+//   {
+//     // Project only needed fields (optional)
+//     $project: {
+//       "_id": 1,
+//       "status": 1,
+//       "pickup": 1,
+//       "drop": 1,
+//       "pickupOtp": 1,
+//       "dropOtp": 1,
+//       "timeline": 1,
+//       "fare": 1,
+//       "tracking": 1,
+//       "cancelledBy": 1,
+//       "cancellationReason": 1,
+//       "cancellationFee": 1,
+      
+//       // Vehicle details
+//       "vehicleDetails._id": 1,
+//       "vehicleDetails.registrationNumber": 1,
+//       "vehicleDetails.model": 1,
+//       "vehicleDetails.make": 1,
+//       "vehicleDetails.color": 1,
+//       "vehicleDetails.type": 1,
+      
+//       // Payment details
+//       "paymentDetails._id": 1,
+//       "paymentDetails.amount": 1,
+//       "paymentDetails.status": 1,
+//       "paymentDetails.method": 1,
+//       "paymentDetails.transactionId": 1,
+//       "paymentDetails.paidAt": 1,
+      
+//       // User (Customer) details
+//       "userDetails._id": 1,
+//       "userDetails.name": 1,
+//       "userDetails.email": 1,
+//       "userDetails.phone": 1,
+      
+//       // Partner (Driver) details
+//       "partnerDetails._id": 1,
+//       "partnerDetails.name": 1,
+//       "partnerDetails.email": 1,
+//       "partnerDetails.phone": 1,
+//       "partnerDetails.rating": 1
+//     }
+//   }
+// ])
+
 
 const statusFilters = [
   { id: 'all', label: 'All Bookings', count: 24, color: 'bg-gradient-to-r from-blue-500 to-purple-500' },
@@ -548,9 +659,9 @@ export default function PartnerBookings() {
                             {statusBadge.label}
                           </span>
                         </span>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${paymentBadge.color}`}>
+                        {/* <span className={`px-3 py-1 rounded-full text-sm font-medium ${paymentBadge.color}`}>
                           {paymentBadge.label}
-                        </span>
+                        </span> */}
                       </div>
                       <p className="text-gray-600 mt-1">Created on {booking.createdAt}</p>
                     </div>

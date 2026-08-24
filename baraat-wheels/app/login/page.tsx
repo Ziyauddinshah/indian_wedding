@@ -105,7 +105,6 @@ export default function LoginPage() {
       
       const { user, token } = response?.data
       console.log('API response:', response)
-      console.log('User data after login1:', user)
       
       // Role mismatch check
       if (user.role !== selectedType) {
@@ -133,7 +132,8 @@ export default function LoginPage() {
           path: '/'
         })
         console.log('Redirecting to pending approval page for partner:', user)
-        router.push('/partner/pending-approval')
+        setLoading(false)
+        // router.push('/partner/pending-approval')
         return
       }
 
