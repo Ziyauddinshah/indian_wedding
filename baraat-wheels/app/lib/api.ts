@@ -160,35 +160,47 @@ export const vehicleApi = {
 
   // Get single vehicle by ID
   getById: (id: string) =>
-    api.get<{ vehicle: Vehicle }>(`/vehicles/${id}`),
+    api.get<{ vehicle: Vehicle }>(`http://localhost:5000/api/vehicles/${id}`),
 
   // Register new vehicle (with image upload)
   register: (formData: FormData) =>
-    api.post<{ vehicle: Vehicle }>('/vehicles/register', formData, {
+    api.post<{ vehicle: Vehicle }>('http://localhost:5000/api/vehicles/register', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 
   // Update vehicle
   update: (id: string, data: Partial<Vehicle>) =>
-    api.put<{ vehicle: Vehicle }>(`/vehicles/${id}`, data),
+    api.put<{ vehicle: Vehicle }>(`http://localhost:5000/api/vehicles/${id}`, data),
 
   // Delete vehicle
   delete: (id: string) =>
-    api.delete(`/vehicles/${id}`),
+    api.delete(`http://localhost:5000/api/vehicles/${id}`),
 
   // Toggle availability
   toggleAvailability: (id: string) =>
-    api.patch<{ vehicle: Vehicle }>(`/vehicles/${id}/availability`),
+    api.patch<{ vehicle: Vehicle }>(`http://localhost:5000/api/vehicles/${id}/availability`),
 
   // Get vehicles owned by logged-in partner
   getMyVehicles: () =>
-    api.get<{ vehicles: Vehicle[] }>('/vehicles/my-vehicles'),
+    api.get<{ vehicles: Vehicle[] }>('http://localhost:5000/api/vehicles/my-vehicles'),
 
   // Upload vehicle images separately
   uploadImages: (id: string, formData: FormData) =>
-    api.post(`/vehicles/${id}/images`, formData, {
+    api.post(`http://localhost:5000/api/vehicles/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+
+  getVehiclesWithStats: (token: string, filters?: VehicleFilters) =>
+    api.get<{ vehicles: Vehicle[]; total: number; pages: number; stats: { totalBookings: number; averageRating: number } }>(
+      'http://localhost:5000/api/vehicles/with-stats',
+      { 
+        // params: filters,
+        headers: 
+        { 'Content-Type': 'application/json',
+          'authorization': "Bearer " + token,
+        }
+       },
+    ),
 };
 
 

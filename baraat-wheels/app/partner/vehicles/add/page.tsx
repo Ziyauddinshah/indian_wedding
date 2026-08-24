@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Tag, IndianRupeeIcon, Calendar, Upload, MapPin, Camera, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 const vehicleTypes = [
   { id: 'luxury', name: 'Luxury Vehicle', color: 'bg-gradient-to-r from-purple-500 to-pink-500' },
@@ -20,12 +21,15 @@ const vehicleCompanies = [
 interface VehicleFormData {
   vehicleName: string;
   pricePerDay: string;
+  basePricePerHour: string;
   modelYear: string;
   rcNumber: string;
   pucNumber: string;
   insuranceNumber: string;
   location: string;
+  city: string;
   description: string;
+  category: string;
 }
 
 interface DocumentStatus {
@@ -48,14 +52,18 @@ export default function AddVehicle() {
   const [formData, setFormData] = useState<VehicleFormData>({
     vehicleName: '',
     pricePerDay: '',
+    basePricePerHour: '',
     modelYear: '',
     rcNumber: '',
     pucNumber: '',
     insuranceNumber: '',
     location: '',
-    description: ''
+    city:'',
+    description: '',
+    category:''
   });
 
+  const { user, getAccessToken } = useAuth();
   // Document upload states with status
   const [documents, setDocuments] = useState<DocumentStatus>({
     rc: { uploaded: false, fileName: '', file: null },
@@ -219,7 +227,10 @@ export default function AddVehicle() {
     // Append vehicle type and company
     formDataToSend.append('vehicleType', selectedType);
     formDataToSend.append('company', selectedCompany);
-    
+    formDataToSend.append('basePricePerHour', formData.basePricePerHour || '100'); // Append base price per hour if available
+    formDataToSend.append('city', formData.location || 'Delhi'); // Append city for better search filtering
+    formDataToSend.append('category', selectedType === 'ghodi' ? 'Traditional' : 'Modern'); // Append category based on type
+
     // Append all text fields
     Object.entries(formData).forEach(([key, value]) => {
       formDataToSend.append(key, value);
@@ -255,9 +266,13 @@ export default function AddVehicle() {
       }, 500);
 
       // Send to API
-      const response = await fetch('/api/vehicles/register', {
+      const response = await fetch('http://localhost:5000/api/vehicles/register', {
         method: 'POST',
         body: formDataToSend,
+        headers: {
+          // 'Content-Type': 'multipart/form-data' // Let browser set this with correct boundary
+          'authorization': `Bearer ${getAccessToken()}` // Assuming token is stored in localStorage
+        }
       });
 
       clearInterval(progressInterval);
@@ -295,12 +310,15 @@ export default function AddVehicle() {
     setFormData({
       vehicleName: '',
       pricePerDay: '',
+      basePricePerHour: '',
       modelYear: '',
       rcNumber: '',
       pucNumber: '',
       insuranceNumber: '',
       location: '',
-      description: ''
+      city: '',
+      description: '',
+      category:''
     });
     setDocuments({
       rc: { uploaded: false, fileName: '', file: null },

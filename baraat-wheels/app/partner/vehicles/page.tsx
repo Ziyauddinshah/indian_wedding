@@ -1,6 +1,7 @@
+//app/partner/vehicles/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { 
   Grid, List, Filter, Download, Plus, 
@@ -8,11 +9,14 @@ import {
   TrendingUp, Star, Calendar, IndianRupee,Car,
   ChevronLeft, ChevronRight, Sparkles, AlertCircle
 } from 'lucide-react';
+import { vehicleApi } from '@/app/lib/api';
+import { useAuth } from '@/app/contexts/AuthContext';
+import axios from 'axios';
 
-const vehicles = [
+const vehiclesData = [
   {
     id: 1,
-    name: 'Mercedes S-Class 2024',
+    vehicle_name: 'Mercedes S-Class 2024',
     type: 'luxury',
     category: 'Luxury Sedan',
     price: '₹25,000/day',
@@ -25,7 +29,7 @@ const vehicles = [
   },
   {
     id: 2,
-    name: 'Royal Elephant Decorated',
+    vehicle_name: 'Royal Elephant Decorated',
     type: 'royal',
     category: 'Royal Procession',
     price: '₹45,000/day',
@@ -38,7 +42,7 @@ const vehicles = [
   },
   {
     id: 3,
-    name: 'Traditional Ghodi Set',
+    vehicle_name: 'Traditional Ghodi Set',
     type: 'ghodi',
     category: 'Traditional',
     price: '₹15,000/day',
@@ -51,7 +55,7 @@ const vehicles = [
   },
   {
     id: 4,
-    name: 'BMW 7 Series Luxury',
+    vehicle_name: 'BMW 7 Series Luxury',
     type: 'luxury',
     category: 'Luxury Sedan',
     price: '₹22,000/day',
@@ -64,7 +68,7 @@ const vehicles = [
   },
   {
     id: 5,
-    name: 'Audi A8 L Chauffeur',
+    vehicle_name: 'Audi A8 L Chauffeur',
     type: 'luxury',
     category: 'Executive',
     price: '₹28,000/day',
@@ -77,7 +81,7 @@ const vehicles = [
   },
   {
     id: 6,
-    name: 'Vintage Rolls Royce',
+    vehicle_name: 'Vintage Rolls Royce',
     type: 'royal',
     category: 'Vintage',
     price: '₹55,000/day',
@@ -97,12 +101,17 @@ export default function MyVehiclesPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const [isLoading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { getAccessToken } = useAuth();
+
+  const [vehicles, setVehicles] = useState<any[]>(vehiclesData); // In real implementation, define proper type  
 
   const filteredVehicles = vehicles.filter(vehicle => {
-    const matchesSearch = vehicle.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         vehicle.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = selectedType === 'all' || vehicle.type === selectedType;
-    const matchesStatus = selectedStatus === 'all' || vehicle.status === selectedStatus;
+    const matchesSearch = vehicle?.vehicle_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         vehicle?.category?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = selectedType === 'all' || vehicle?.type === selectedType;
+    const matchesStatus = selectedStatus === 'all' || vehicle?.status === selectedStatus;
     return matchesSearch && matchesType && matchesStatus;
   });
 
@@ -124,6 +133,86 @@ export default function MyVehiclesPage() {
         return { text: 'Unknown', color: 'bg-gray-100 text-gray-700', icon: '❓' };
     }
   };
+
+  // Fetch vehicles from server
+  const fetchVehicles = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const token = getAccessToken() || "";
+      if (!token) {
+        console.error('No access token found. Please log in.');
+        setLoading(false);
+        return;
+      } 
+      const response = await vehicleApi.getVehiclesWithStats(token, { page: currentPage, limit: itemsPerPage });
+      setVehicles(response?.data.vehicles || []); // In real implementation, this should update state
+      console.log('Fetched vehicles with stats:', response);
+      // In real implementation, set vehicles state with response data here
+    } catch (err) {
+      console.error('Error fetching vehicles:', err);
+      setError('Failed to load vehicles. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  }, [getAccessToken, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    fetchVehicles();
+  }, [fetchVehicles]);
+
+ const formatRelativeDate = (isoString: string) => {
+  const date = new Date(isoString);
+  const now = new Date();
+  
+  // Reset times to midnight for day comparisons
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const inputDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  
+  const diffMs = today.getTime() - inputDate.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  // Format time: 09:00 AM
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  const timeStr = `${String(displayHours).padStart(2, '0')}:${minutes} ${ampm}`;
+  
+  // Today
+  if (diffDays === 0) {
+    return `Today ${timeStr}`;
+  }
+  
+  // Yesterday (older than today but within 2 days)
+  if (diffDays === 1) {
+    return `Yesterday ${timeStr}`;
+  }
+  
+  // 2-6 days ago
+  if (diffDays >= 2 && diffDays < 7) {
+    return `${diffDays} days ago`;
+  }
+  
+  // 7-29 days ago → weeks
+  if (diffDays >= 7 && diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+  }
+  
+  // 30-364 days ago → months
+  if (diffDays >= 30 && diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} month${months > 1 ? 's' : ''} ago`;
+  }
+  
+  // 365+ days ago → years
+  const years = Math.floor(diffDays / 365);
+  return `${years} year${years > 1 ? 's' : ''} ago`;
+}
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="space-y-6">
@@ -290,7 +379,7 @@ export default function MyVehiclesPage() {
                 <div className="relative h-48 overflow-hidden">
                   <div 
                     className="absolute inset-0 bg-cover bg-center group-hover:scale-110 transition-transform duration-500"
-                    style={{ backgroundImage: `url(${vehicle.image})` }}
+                    style={{ backgroundImage: `url(${vehicle?.images || '/default-image.jpg'})` }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   
@@ -308,8 +397,8 @@ export default function MyVehiclesPage() {
 
                   {/* Price */}
                   <div className="absolute bottom-4 left-4 right-4">
-                    <div className="text-2xl font-bold text-white">{vehicle.price}</div>
-                    <div className="text-sm text-white/90">{vehicle.name}</div>
+                    <div className="text-2xl font-bold text-white">{vehicle.basePricePerHour}/hr</div>
+                    <div className="text-sm text-white/90">{vehicle.vehicleName}</div>
                   </div>
                 </div>
 
@@ -318,16 +407,33 @@ export default function MyVehiclesPage() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <Star className="fill-yellow-400 text-yellow-400" size={16} />
-                      <span className="font-medium">{vehicle.rating}</span>
+                      <span className="font-medium">{vehicle.stats?.rating || 4.5}</span>
                     </div>
-                    <div className="text-sm text-gray-500">Last: {vehicle.lastBooking}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-gray-500">Model Year</div>
+                      <span className="font-medium">{vehicle.modelYear || 2026}</span>
+                    </div>
                   </div>
 
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-gray-500">Extra Km Rate</div>
+                      <span className="font-medium">{vehicle.extraKmRate || 1000} / Km</span>
+                    </div>
+                  </div>
+                    
                   {/* Stats */}
-                  <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="grid grid-cols-2 gap-3 mb-6">
                     <div className="text-center">
-                      <div className="text-sm text-gray-500">Bookings</div>
-                      <div className="text-lg font-bold text-gray-800">{vehicle.bookings}</div>
+                      <div className="text-sm text-gray-500">Total Bookings</div>
+                      <div className="text-md font-bold text-gray-600">{vehicle.stats?.totalBookings || 0}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-sm text-gray-500">Last Booked</div>
+                      <div className="text-md font-bold text-gray-600">{vehicle.stats?.lastBooking && (() => {
+                          return formatRelativeDate(vehicle.stats.lastBooking);
+                        })() || formatRelativeDate('2026-05-19T08:15:00.000Z')}
+                      </div>
                     </div>
                   </div>
 
@@ -373,29 +479,30 @@ export default function MyVehiclesPage() {
                       <div className="flex items-center gap-3">
                         <div className={`w-12 h-12 rounded-lg ${vehicle.color} bg-gradient-to-r`}>
                           {/* Vehicle icon based on type */}
+                          
                         </div>
                         <div>
-                          <div className="font-medium text-gray-800">{vehicle.name}</div>
+                          <div className="font-medium text-gray-800">{vehicle.vehicleName}</div>
                           <div className="text-sm text-gray-500">{vehicle.category}</div>
                         </div>
                       </div>
                     </td>
                     <td className="p-4">
                       <span className="capitalize px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-                        {vehicle.type}
+                        {vehicle.vehicleType}
                       </span>
                     </td>
-                    <td className="p-4 font-bold text-gray-800">{vehicle.price}</td>
+                    <td className="p-4 font-bold text-gray-800">{vehicle.basePricePerHour}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <Calendar className="text-blue-500" size={16} />
-                        <span>{vehicle.bookings}</span>
+                        <span>{vehicle.stats?.totalBookings || 2}</span>
                       </div>
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <Star className="fill-yellow-400 text-yellow-400" size={16} />
-                        <span>{vehicle.rating}</span>
+                        <span>{vehicle.stats?.rating || 4.3}</span>
                       </div>
                     </td>
                     <td className="p-4">

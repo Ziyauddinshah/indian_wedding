@@ -133,7 +133,7 @@ export type User = {
 }
 
 type VerificationStatus = {
-  verificationStatus: 'pending' | 'approved' | 'rejected' | null
+  verificationStatus: 'pending' | 'approved' | 'rejected'
   rejectionReason?: string
   submittedAt?: Date
 }
@@ -147,6 +147,7 @@ type AuthContextType = {
   logout: () => void
   updateUserVerificationStatus: (status: VerificationStatus) => void
   updateUser: (userData: Partial<User>) => void
+  getAccessToken: () => string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -207,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData)
     localStorage.setItem('user', JSON.stringify(userData))
 
-    if (verificationStatus) {
+    if (verificationStatus?.verificationStatus=='pending' || verificationStatus?.verificationStatus=='approved' || verificationStatus?.verificationStatus=='rejected') {
       setUserVerificationStatus(verificationStatus)
       localStorage.setItem('user_verification_status', JSON.stringify(verificationStatus))
     }
@@ -250,6 +251,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('user_verification_status', JSON.stringify(status))
   }, [])
 
+  const getAccessToken = useCallback(() => {
+    const tokenFromCookie = document.cookie.split('; ').find(row => row.startsWith('token='))
+    return tokenFromCookie ? tokenFromCookie.split('=')[1] : null
+  }, [])
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -260,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       updateUserVerificationStatus,
       updateUser,
+      getAccessToken,
     }}>
       {children}
     </AuthContext.Provider>

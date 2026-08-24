@@ -2,42 +2,208 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import axios from 'axios';
 import { useRouter } from 'next/navigation'
 import { authApi } from '../lib/api';
 import { CustomerPayload, PartnerPayload, AdminPayload, RegisterPayload } from '../model/User';
+import { form } from 'framer-motion/m';
 
-type UserType = 'customer' | 'partner'
+type UserType = 'customer' | 'partner' | 'admin'
+
+type FormErrors = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  password?: string;
+  confirmPassword?: string;
+  terms?: string;
+  general?: string;
+};
+const initialFormData: RegisterPayload = {
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  password: "",
+  confirmPassword: "",
+  agreeToTerms: false,
+  newsletter: false,
+  role: "customer",
+};
+
 
 export default function RegisterPage() {
-  const router = useRouter()
-  const [selectedType, setSelectedType] = useState<UserType>('customer')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  
 
-  // Customer form data
-  const [customerData, setCustomerData] = useState<CustomerPayload>({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    password: '',
-    confirmPassword: '',
-    agreeToTerms: false,
-    newsletter: false,
-    role: 'customer',
-  })
+  const [selectedType, setSelectedType] = useState<UserType>("customer");
+  const [customerData, setCustomerData] = useState<RegisterPayload>({
+      ...initialFormData,
+      role: "customer",
+    });
+  const [partnerData, setPartnerData] = useState<RegisterPayload>({
+      ...initialFormData,
+      role: "partner",
+      newsletter: undefined,
+    });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [loading, setLoading] = useState(false);
+  const [apiResponseMessage, setApiResponseMessage] = useState("");
+  const [apiResponseSuccess, setApiResponseSuccess] = useState(false);
+  const currentData = selectedType === "customer" ? customerData : partnerData;
+  
+  const updateFormData = (
+  field: keyof RegisterPayload,
+  value: string | boolean
+) => {
+  const updatedData: RegisterPayload = {
+    ...currentData,
+    [field]: value,
+    role: selectedType,
+  };
+  if (selectedType === "customer") {
+    setCustomerData(updatedData);
+  } else {
+    setPartnerData(updatedData);
+  }
+  // Validate the complete updated object,
+  // but display only the error for the changed field.
+  const validationErrors = validateForm(updatedData);
+  const validationField = field as keyof FormErrors;
 
-  // Partner form data
-  const [partnerData, setPartnerData] = useState<PartnerPayload>({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    password: '',
-    confirmPassword: '',
-    agreeToTerms: false,
-    role: 'partner',
-  })
+  setErrors((previousErrors) => {
+    const nextErrors: FormErrors = {
+      ...previousErrors,
+      general: "",
+      [validationField]: validationErrors[validationField] || "",
+    };
+    // Password changes can affect confirm-password validation
+    if (field === "password" && updatedData.confirmPassword) {
+      nextErrors.confirmPassword =
+      validationErrors.confirmPassword || "";
+    }
+    // Password confirmation changes should update its own error
+    if (field === "confirmPassword") {
+      nextErrors.confirmPassword =
+      validationErrors.confirmPassword || "";
+    }
+    // Terms checkbox has a different error key
+    if (field === "agreeToTerms") {
+      nextErrors.terms = validationErrors.terms || "";
+    }
+    return nextErrors;
+  });
+};
+
+const validateForm = ( formData: RegisterPayload): FormErrors => {
+  const validationErrors: FormErrors = {};
+  const nameRegex = /^[A-Za-z ]{2,50}$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const contactRegex = /^\d{10}$/;
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+  // const passwordRegex = "";
+
+  if (!formData.name.trim()) {
+    validationErrors.name = "Name is required";
+  } else if (!nameRegex.test(formData.name.trim())) {
+    validationErrors.name =
+      "Name must contain only letters and spaces";
+  }
+
+  if (!formData.email.trim()) {
+    validationErrors.email = "Email is required";
+  } else if (!emailRegex.test(formData.email.trim())) {
+    validationErrors.email = "Enter a valid email address";
+  }
+
+  if (!formData.phone.trim()) {
+    validationErrors.phone = "Contact number is required";
+  } else if (!contactRegex.test(formData.phone.trim())) {
+    validationErrors.phone =
+      "Contact number must contain exactly 10 digits";
+  }
+
+  if (!formData.address.trim()) {
+    validationErrors.address = "Address is required";
+  }
+
+  // if (!formData.password) {
+  //   validationErrors.password = "Password is required";
+  // } else if (!passwordRegex.test(formData.password)) {
+  //   validationErrors.password =
+  //     "Password must contain 8+ characters, uppercase, lowercase, number and special character";
+  // }
+
+  if (!formData.confirmPassword) {
+    validationErrors.confirmPassword =
+      "Confirm password is required";
+  } else if (
+    formData.password !== formData.confirmPassword
+  ) {
+    validationErrors.confirmPassword =
+      "Passwords do not match";
+  }
+
+  if (!formData.agreeToTerms) {
+    validationErrors.terms =
+      "You must agree to the terms and conditions";
+  }
+  return validationErrors;
+};
+
+  const handleSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+    setErrors({});
+    setApiResponseMessage("");
+    const formData: RegisterPayload = {
+      ...currentData,
+      // Always use the selected account type
+      role: selectedType,
+    };
+    const validationErrors = validateForm(formData);
+    // Stop submission if any validation errors exist
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await authApi.register(formData);
+      console.log("API Response:", response.data);
+      if(response?.data?.success){
+        setApiResponseSuccess(true);
+        setApiResponseMessage(response.data.message || "Registration successful!");
+        formData.name = "";
+        formData.email = "";
+        formData.phone = "";
+        formData.address = "";
+        formData.password = "";
+        formData.confirmPassword = "";
+        formData.agreeToTerms = false;
+        formData.newsletter = false;
+      }
+
+      if (!response?.data?.success) {
+        throw new Error(
+          response?.data?.message || "Registration failed"
+        );
+      }
+    } catch (error: any) {
+      setApiResponseSuccess(false);
+      if (axios.isAxiosError(error)) {
+        const statusCode = error.response?.status;
+        const message = error.response?.data?.message || "Registration failed. Please try again.";
+        setApiResponseMessage(message);
+        return;
+      }
+      setApiResponseMessage("Unable to connect to the server.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const userTypes = [
     {
@@ -57,53 +223,7 @@ export default function RegisterPage() {
       focusColor: 'emerald-500',
     }
   ]
-
   const currentType = userTypes.find(t => t.type === selectedType)!
-
-  const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, type, value } = e.target
-    const checked = (e.target as HTMLInputElement).checked
-    setCustomerData({ ...customerData, [name]: type === 'checkbox' ? checked : value })
-  }
-
-  const handlePartnerChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, type, value } = e.target
-    const checked = (e.target as HTMLInputElement).checked
-    setPartnerData({ ...partnerData, [name]: type === 'checkbox' ? checked : value })
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-
-    let formData: RegisterPayload
-    if (selectedType === 'customer') formData = customerData
-    else formData = partnerData
-
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      setLoading(false)
-      return
-    }
-    if (!formData.agreeToTerms) {
-      setError('You must agree to the terms and conditions')
-      setLoading(false)
-      return
-    }
-
-    try {
-      const response = await authApi.register(formData);
-      console.log('API response:', response?.data);
-      // router.push('/login')
-    } catch (err) {
-      setError('Registration failed. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const getFocusColor = () => {
     if (selectedType === 'customer') return 'focus:border-indigo-500'
     if (selectedType === 'partner') return 'focus:border-emerald-500'
@@ -155,10 +275,16 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Error Message */}
-          {error && (
+          {/* Api Response Success Message */}
+          {apiResponseSuccess && (
+            <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 text-green-700 rounded">
+              {apiResponseMessage}
+            </div>
+          )}
+          {/* Api Response Error Message */}
+          {apiResponseMessage && !apiResponseSuccess && (
             <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded">
-              {error}
+              {apiResponseMessage}
             </div>
           )}
 
@@ -172,12 +298,15 @@ export default function RegisterPage() {
                   <input
                     type="text"
                     name="name"
-                    value={customerData.name}
-                    onChange={handleCustomerChange}
+                    value={customerData.name}                    
+                    onChange={(event) =>
+                      updateFormData("name", event.target.value)
+                    }
                     required
-                    placeholder="Jane Smith"
+                    placeholder="Enter full name"
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                  {errors.name && <p style={{ color: "red" }}>{errors.name}</p>}
                 </div>
 
                 <div>
@@ -186,11 +315,14 @@ export default function RegisterPage() {
                     type="email"
                     name="email"
                     value={customerData.email}
-                    onChange={handleCustomerChange}
+                    onChange={(event) =>
+                      updateFormData("email", event.target.value)
+                    }
                     required
-                    placeholder="jane@example.com"
+                    placeholder="xyz@gmail.com"
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                   {errors.email && <p style={{ color: "red" }}>{errors.email}</p>}
                 </div>
 
                 <div>
@@ -199,11 +331,14 @@ export default function RegisterPage() {
                     type="tel"
                     name="phone"
                     value={customerData.phone}
-                    onChange={handleCustomerChange}
+                    onChange={(event) =>
+                      updateFormData("phone", event.target.value)
+                    }
                     required
-                    placeholder="+1 234 567 8900"
+                    placeholder="+91 9999999999"
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                  {errors.phone && <p style={{ color: "red" }}>{errors.phone}</p>}
                 </div>
 
                 <div className="md:col-span-2">
@@ -211,11 +346,14 @@ export default function RegisterPage() {
                   <textarea
                     name="address"
                     value={customerData.address}
-                    onChange={handleCustomerChange}
-                    placeholder="Enter your full address"
+                    onChange={(event) =>
+                      updateFormData("address", event.target.value)
+                    }
+                    placeholder="Enter street address, city, state, zip code"
                     rows={2}
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors resize-none`}
                   />
+                  {errors.address && <p style={{ color: "red" }}>{errors.address}</p>}
                 </div>
 
                 <div>
@@ -224,12 +362,15 @@ export default function RegisterPage() {
                     type="password"
                     name="password"
                     value={customerData.password}
-                    onChange={handleCustomerChange}
+                    onChange={(event) =>
+                      updateFormData("password", event.target.value)
+                    }
                     required
                     placeholder="••••••••"
                     minLength={8}
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                  {errors.password && <p style={{ color: "red" }}>{errors.password}</p>}
                   <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
                 </div>
 
@@ -239,11 +380,14 @@ export default function RegisterPage() {
                     type="password"
                     name="confirmPassword"
                     value={customerData.confirmPassword}
-                    onChange={handleCustomerChange}
+                    onChange={(event) =>
+                      updateFormData("confirmPassword", event.target.value)
+                    }
                     required
                     placeholder="••••••••"
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                  {errors.confirmPassword && <p style={{ color: "red" }}>{errors.confirmPassword}</p>}
                 </div>
               </div>
             )}
@@ -252,16 +396,19 @@ export default function RegisterPage() {
             {selectedType === 'partner' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-2">Owner Name *</label>
+                  <label className="block text-gray-700 font-medium mb-2">Full Name *</label>
                   <input
                     type="text"
                     name="name"
                     value={partnerData.name}
-                    onChange={handlePartnerChange}
+                    onChange={(event) =>
+                      updateFormData("name", event.target.value)
+                    }
                     required
-                    placeholder="Enter owner full name"
+                    placeholder="Enter full name"
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                  {errors.name && <p style={{ color: "red" }}>{errors.name}</p>}
                 </div>
 
                 <div>
@@ -270,11 +417,14 @@ export default function RegisterPage() {
                     type="email"
                     name="email"
                     value={partnerData.email}
-                    onChange={handlePartnerChange}
+                    onChange={(event) =>
+                      updateFormData("email", event.target.value)
+                    }
                     required
-                    placeholder="Enter email address"
+                    placeholder="xyz@gmail.com"
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                  {errors.email && <p style={{ color: "red" }}>{errors.email}</p>}
                 </div>
 
                 <div>
@@ -283,11 +433,14 @@ export default function RegisterPage() {
                     type="tel"
                     name="phone"
                     value={partnerData.phone}
-                    onChange={handlePartnerChange}
+                    onChange={(event) =>
+                      updateFormData("phone", event.target.value)
+                    }
                     required
-                    placeholder="Enter phone number"
+                    placeholder="+91 9999999999"
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                  {errors.phone && <p style={{ color: "red" }}>{errors.phone}</p>}
                 </div>
 
                 <div className="md:col-span-2">
@@ -295,12 +448,15 @@ export default function RegisterPage() {
                   <textarea
                     name="address"
                     value={partnerData.address}
-                    onChange={handlePartnerChange}
+                    onChange={(event) =>
+                      updateFormData("address", event.target.value)
+                    }
                     required
                     placeholder="Enter street address, city, state, zip code"
                     rows={2}
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors resize-none`}
                   />
+                  {errors.address && <p style={{ color: "red" }}>{errors.address}</p>}
                 </div>
 
                 <div>
@@ -309,12 +465,15 @@ export default function RegisterPage() {
                     type="password"
                     name="password"
                     value={partnerData.password}
-                    onChange={handlePartnerChange}
+                    onChange={(event) =>
+                      updateFormData("password", event.target.value)
+                    }
                     required
                     placeholder="••••••••"
                     minLength={8}
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                  {errors.password && <p style={{ color: "red" }}>{errors.password}</p>}
                   <p className="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
                 </div>
 
@@ -324,11 +483,14 @@ export default function RegisterPage() {
                     type="password"
                     name="confirmPassword"
                     value={partnerData.confirmPassword}
-                    onChange={handlePartnerChange}
+                    onChange={(event) =>
+                      updateFormData("confirmPassword", event.target.value)
+                    }
                     required
                     placeholder="••••••••"
                     className={`w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none ${getFocusColor()} transition-colors`}
                   />
+                  {errors.confirmPassword && <p style={{ color: "red" }}>{errors.confirmPassword}</p>}
                 </div>
               </div>
             )}
@@ -339,19 +501,10 @@ export default function RegisterPage() {
                 <input
                   type="checkbox"
                   name="agreeToTerms"
-                  checked={
-                    selectedType === 'customer'
-                      ? customerData.agreeToTerms
-                      : selectedType === 'partner'
-                      ? partnerData.agreeToTerms
-                      : false
+                  checked={currentData.agreeToTerms}
+                  onChange={(event) =>
+                    updateFormData("agreeToTerms", event.target.checked)
                   }
-                  onChange={
-                    selectedType === 'customer'
-                      ? handleCustomerChange
-                      : selectedType === 'partner'
-                      ? handlePartnerChange
-                      : undefined}
                   required
                   className="w-4 h-4 border-gray-300 rounded focus:ring-2 mt-1"
                   style={{ accentColor: currentType.gradient.includes('indigo') ? '#6366f1' : currentType.gradient.includes('emerald') ? '#10b981' : '#8b5cf6' }}
@@ -381,8 +534,10 @@ export default function RegisterPage() {
                   <input
                     type="checkbox"
                     name="newsletter"
-                    checked={customerData.newsletter}
-                    onChange={handleCustomerChange}
+                    checked={currentData.newsletter}
+                    onChange={(event) =>
+                      updateFormData("newsletter", event.target.checked)
+                    }
                     className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 mt-1"
                   />
                   <span className="ml-3 text-sm text-gray-700">
@@ -391,7 +546,7 @@ export default function RegisterPage() {
                 </label>
               )}
             </div>
-
+            
             <button
               type="submit"
               disabled={loading}

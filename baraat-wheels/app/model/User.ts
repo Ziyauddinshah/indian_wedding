@@ -13,28 +13,27 @@ interface BaseRegisterPayload {
   name: string;
   email: string;
   phone: string;
+  address: string;
   password: string;
   confirmPassword: string;
   agreeToTerms: boolean;
+  newsletter?: boolean;
 }
+
 
 // Customer-specific
 interface CustomerPayload extends BaseRegisterPayload {
   role: 'customer';
-  address: string;
-  newsletter?: false,
 }
 
 // Partner-specific  
 interface PartnerPayload extends BaseRegisterPayload {
   role: 'partner';
-  address: string;
 }
 
 // Admin-specific
 interface AdminPayload extends BaseRegisterPayload {
   role: 'admin';
-  adminCode: string;
 }
 
 // The union type your API accepts
@@ -58,6 +57,7 @@ export type { CustomerPayload, PartnerPayload, AdminPayload, RegisterPayload };
 export interface AuthResponse {
   success: boolean;
   token: string;
+  message: string;
   user: {
     id: string;
     name: string;
