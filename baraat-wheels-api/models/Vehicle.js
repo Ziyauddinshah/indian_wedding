@@ -1,146 +1,16 @@
 // models/Vehicle.js
-
 const mongoose = require("mongoose");
 
 const vehicleSchema = new mongoose.Schema(
   {
-    // ── Owner ────────────────────────────────────────────────
-    owner_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: [true, "Owner is required"],
-    },
-
-    // ── Basic Info ───────────────────────────────────────────
-    vehicleType: {
-      type: String,
-      required: [true, "Vehicle type is required"],
-      enum: ["Sedan", "SUV", "Luxury Sedan", "Luxury SUV", "MUV", "Vintage"],
-    },
-    company: {
-      type: String,
-      required: [true, "Company name is required"],
-      trim: true,
-    },
-    vehicleName: {
-      type: String,
-      required: [true, "Vehicle name is required"],
-      trim: true,
-    },
-    modelYear: {
-      type: Number,
-      required: [true, "Model year is required"],
-      min: [1900, "Year seems too old"],
-      max: [new Date().getFullYear() + 1, "Year cannot be in the future"],
-    },
-    seatingCapacity: {
-      type: Number,
-      required: [true, "Seating capacity is required"],
-      min: 2,
-      max: 20,
-    },
-    color: {
-      type: String,
-      trim: true,
-      default: null,
-    },
-    features: {
-      type: [String],
-      enum: [
-        "AC",
-        "GPS",
-        "Music System",
-        "Wedding Decoration",
-        "Bonnet Decoration",
-        "Sunroof",
-        "Leather Seats",
-        "Ventilated Seats",
-        "Chauffeur",
-      ],
-      default: [],
-    },
-    description: {
-      type: String,
-      trim: true,
-      maxlength: [500, "Description cannot exceed 500 characters"],
-    },
-
-    // ── Pricing ──────────────────────────────────────────────
-    basePricePerHour: {
-      type: Number,
-      required: [true, "Base price per hour is required"],
-      min: [0, "Price cannot be negative"],
-    },
-    basePricePerDay: {
-      type: Number,
-      default: null,
-    },
-    extra_km_rate: {
-      type: String,
-      default: "150",
-    },
-    extra_hour_rate: {
-      type: String,
-      default: "1500",
-    },
-    currency: {
-      type: String,
-      default: "INR",
-    },
-    gstPercent: {
-      type: Number,
-      default: 18, // 18% GST applicable on vehicle rentals
-    },
-
-    // ── Location ─────────────────────────────────────────────
-    location: {
-      city: {
-        type: String,
-        required: [true, "City is required"],
-        trim: true,
-      },
-      state: {
-        type: String,
-        default: "Uttar Pradesh",
-        trim: true,
-      },
-      pincode: {
-        type: String,
-        trim: true,
-      },
-    },
-
-    // ── Documents ────────────────────────────────────────────
-    rcNumber: {
-      type: String,
-      required: [true, "RC number is required"],
-      unique: true,
-      uppercase: true,
-      trim: true,
-      match: [
-        /^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$/,
-        "Enter a valid RC number e.g. UP32AB1234",
-      ],
-    },
-    pucNumber: {
-      type: String,
-      required: [true, "PUC number is required"],
-      trim: true,
-    },
-    pucExpiry: {
-      type: Date,
-      default: null,
-    },
-    insuranceNumber: {
-      type: String,
-      required: [true, "Insurance number is required"],
-      trim: true,
-    },
-    insuranceExpiry: {
-      type: Date,
-      default: null,
-    },
+    basePricePerHour: { type: Number, required: true },
+    company: { type: String, required: true },
+    description: { type: String, required: true },
     documents: {
+      insurance: {
+        url: { type: String, default: null },
+        verified: { type: Boolean, default: false },
+      },
       rc: {
         url: { type: String, default: null },
         verified: { type: Boolean, default: false },
@@ -149,76 +19,97 @@ const vehicleSchema = new mongoose.Schema(
         url: { type: String, default: null },
         verified: { type: Boolean, default: false },
       },
-      insurance: {
-        url: { type: String, default: null },
-        verified: { type: Boolean, default: false },
-      },
     },
 
-    // ── Images ───────────────────────────────────────────────
-    images: {
-      type: [String],
-      validate: {
-        validator: (arr) => arr.length <= 10,
-        message: "Maximum 10 images are allowed",
-      },
-      default: [],
-    },
-    thumbnail: {
-      type: String,
-      default: null, // first image used as thumbnail
+    location: {
+      city: { type: [String], default: [] },
+      state: { type: String, default: null },
+      pincode: { type: String, default: null },
     },
 
-    // ── Admin Review ─────────────────────────────────────────
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
-      default: "pending",
+      default: "pending", // ← fixes "status is required"
     },
-    rejectionReason: {
-      type: String,
-      default: null,
+
+    isActive: {
+      type: Boolean,
+      default: true, // ← fixes "isActive is required"
     },
-    reviewedBy: {
+    extraHourRate: { type: String, required: true },
+    extraKmRate: { type: String, required: true },
+    images: [{ type: String }],
+    insuranceNumber: { type: String, required: true },
+    modelYear: { type: Number, required: true },
+    ownerId: {
       type: mongoose.Schema.Types.ObjectId,
+      required: true,
       ref: "User",
-      default: null,
     },
-    reviewedAt: {
-      type: Date,
-      default: null,
-    },
-
-    // ── Availability ─────────────────────────────────────────
-    is_active: {
-      type: Boolean,
-      default: true,
-    },
-    isAvailable: {
-      type: Boolean,
-      default: true, // false when booked
-    },
-    unavailableDates: {
-      type: [Date],
-      default: [], // manually blocked dates by partner
-    },
-
-    // ── Stats ────────────────────────────────────────────────
+    pucNumber: { type: String, required: true },
+    rcNumber: { type: String, required: true },
+    vehicleName: { type: String, required: true },
+    vehicleType: { type: String, required: true },
+    category: { type: String },
+    currency: { type: String },
+    seatingCapacity: { type: Number },
+    color: { type: String },
+    features: [{ type: String }],
+    gstPercent: { type: Number, default: 18 },
+    thumbnail: { type: String },
     stats: {
+      rating: { type: Number, default: 0 },
+      statusDisplay: { type: String },
+      lastBooking: { type: Date },
       totalBookings: { type: Number, default: 0 },
-      totalEarnings: { type: Number, default: 0 },
-      rating: { type: Number, default: 0, min: 0, max: 5 },
-      totalRatings: { type: Number, default: 0 },
+      vehicleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Vehicle",
+      },
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 );
 
-// ── Indexes ───────────────────────────────────────────────────
-vehicleSchema.index({ owner_id: 1 });
-vehicleSchema.index({ status: 1, is_active: 1 });
+// Static method for join query
+vehicleSchema.statics.findWithStats = function (filters = {}, options = {}) {
+  const pipeline = [
+    { $match: filters },
+    {
+      $lookup: {
+        from: "vehicle_stats", // Collection: vehicle_stats
+        localField: "_id",
+        foreignField: "vehicleId",
+        as: "stats",
+      },
+    },
+    {
+      $unwind: {
+        path: "$stats",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+  ];
+
+  // Sorting
+  if (options.sortBy) {
+    pipeline.push({
+      $sort: { [options.sortBy]: options.order === "asc" ? 1 : -1 },
+    });
+  }
+
+  // Pagination
+  if (options.skip) pipeline.push({ $skip: options.skip });
+  if (options.limit) pipeline.push({ $limit: options.limit });
+
+  return this.aggregate(pipeline);
+};
+
+// module.exports = mongoose.model('Vehicle', vehicleSchema, 'vehicles');  // Collection: vehicles
+
+vehicleSchema.index({ ownerId: 1 });
+vehicleSchema.index({ status: 1, isActive: 1 });
 vehicleSchema.index({ "location.city": 1, vehicleType: 1 });
 vehicleSchema.index({ basePricePerHour: 1 });
 vehicleSchema.index({ isAvailable: 1, "location.city": 1 });
@@ -253,4 +144,4 @@ vehicleSchema.methods.updateRating = async function (newRating) {
   await this.save();
 };
 
-module.exports = mongoose.model("Vehicle", vehicleSchema);
+module.exports = mongoose.model("Vehicle", vehicleSchema, "vehicles");

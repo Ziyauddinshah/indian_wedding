@@ -173,8 +173,7 @@ const register = async (req, res) => {
         existingUser.email === email.toLowerCase() ? "email" : "phone";
       return res.status(409).json({
         success: false,
-        message: `User with this ${field} already exists.`,
-        field,
+        message: `Looks like you already have an account! Would you like to log in instead?`,
       });
     }
 
@@ -261,7 +260,7 @@ const register = async (req, res) => {
     // ── 14. Return success ─────────────────────────────────────────
     const message =
       userRole === "partner"
-        ? "Registration successful. Your partner account is pending admin approval. You will be notified once approved."
+        ? "Registration successful. Your partner account is pending and requires admin approval. You will be notified once approved."
         : "Registration successful. Please verify your email to activate your account.";
 
     console.log(userResponse);
@@ -427,18 +426,20 @@ const login = async (req, res) => {
       const hashedRefresh = hashToken(refreshData.token);
 
       // Clean old refresh tokens
-      if (user.refreshTokens.length > 5) {
+      if (user.refreshTokens && user.refreshTokens.length > 5) {
         user.refreshTokens = user.refreshTokens.slice(-5);
       }
 
-      user.refreshTokens.push({
+      const refreshTokens = user.refreshTokens || [];
+      refreshTokens.push({
         token: hashedRefresh,
         createdAt: new Date(),
         expiresAt: refreshData.expiresAt,
         device: req.headers["user-agent"] || "unknown",
         ip: req.ip,
-        rememberMe: false,
+        rememberMe: rememberMe === true,
       });
+
       await user.save();
 
       setTokenCookies(res, accessToken, refreshData.token, false);
@@ -467,7 +468,7 @@ const login = async (req, res) => {
 
     // ── 12. Standard successful login ─────────────────────────────
     // Clean old refresh tokens
-    if (user.refreshTokens.length > 5) {
+    if (user.refreshTokens && user.refreshTokens.length > 5) {
       user.refreshTokens = user.refreshTokens.slice(-5);
     }
 
@@ -475,7 +476,8 @@ const login = async (req, res) => {
     const refreshData = generateRefreshToken(rememberMe === true);
 
     const hashedRefresh = hashToken(refreshData.token);
-    user.refreshTokens.push({
+    const refreshTokens = user.refreshTokens || [];
+    refreshTokens.push({
       token: hashedRefresh,
       createdAt: new Date(),
       expiresAt: refreshData.expiresAt,
@@ -483,6 +485,7 @@ const login = async (req, res) => {
       ip: req.ip,
       rememberMe: rememberMe === true,
     });
+
     await user.save();
 
     setTokenCookies(res, accessToken, refreshData.token, rememberMe === true);

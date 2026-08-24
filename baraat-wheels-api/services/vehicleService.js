@@ -42,15 +42,15 @@ async function registerVehicle(body, files, ownerId) {
   );
 
   const vehicle = new Vehicle({
-    owner_id: ownerId,
+    ownerId: ownerId,
 
     // Basic Info
     vehicleType: body.vehicleType,
     company: body.company,
     vehicleName: body.vehicleName,
-    modelYear: parseInt(body.modelYear),
-    seatingCapacity: parseInt(body.seatingCapacity),
-    color: body.color || null,
+    modelYear: parseInt(body.modelYear) || new Date().getFullYear(),
+    seatingCapacity: parseInt(body.seatingCapacity) || 5,
+    color: body.color || "Not specified",
     features: body.features ? JSON.parse(body.features) : [], // array from form-data
     description: body.description,
 
@@ -59,13 +59,13 @@ async function registerVehicle(body, files, ownerId) {
     basePricePerDay: body.basePricePerDay
       ? parseFloat(body.basePricePerDay)
       : null,
-    extra_km_rate: body.extra_km_rate || "150",
-    extra_hour_rate: body.extra_hour_rate || "1500",
+    extraKmRate: body.extraKmRate || "150",
+    extraHourRate: body.extraHourRate || "1500",
     gstPercent: body.gstPercent ? parseFloat(body.gstPercent) : 18,
 
     // Location
     location: {
-      city: body.city,
+      city: body.city || "Lucknow",
       state: body.state || "Uttar Pradesh",
       pincode: body.pincode || null,
     },
@@ -100,7 +100,7 @@ async function getAllVehicles(filters = {}) {
   if (filters.status) query.status = filters.status;
   if (filters.isAvailable) query.isAvailable = filters.isAvailable === "true";
 
-  return await Vehicle.find(query).sort({ createdAt: -1 }).populate("owner_id"); // adjust fields as needed
+  return await Vehicle.find(query).sort({ createdAt: -1 }).populate("ownerId"); // adjust fields as needed
 }
 
 async function getVehicleById(id) {
@@ -111,7 +111,7 @@ async function getVehicleById(id) {
   }
 
   const vehicle = await Vehicle.findById(id).populate(
-    "owner_id",
+    "ownerId",
     "name email phone",
   );
 
@@ -125,7 +125,7 @@ async function getVehicleById(id) {
 }
 
 async function getVehiclesByOwner(ownerId) {
-  return await Vehicle.find({ owner_id: ownerId }).sort({ createdAt: -1 });
+  return await Vehicle.find({ ownerId: ownerId }).sort({ createdAt: -1 });
 }
 
 async function getOwnerVehicleStats() {
@@ -215,6 +215,72 @@ async function getOwnerVehicleStats() {
     return results;
   } catch (error) {
     console.error("Error fetching owner stats:", error);
+    throw new Error("Internal server error");
+  }
+}
+
+async function getVehiclesWithStats(filters = {}, options = {}) {
+  try {
+    // 1. Get all vehicles with stats
+    const vehicles = await Vehicle.findWithStats(filters, options);
+    return vehicles;
+  } catch (error) {
+    console.error("Error finding vehicles with stats:", error);
+    throw new Error("Internal server error");
+  }
+}
+
+async function findActiveSortedVehicles(filters = {}, options = {}) {
+  try {
+    // 2. Active vehicles only, sorted by rating
+    const active = await Vehicle.findWithStats(
+      { is_active: true },
+      { sortBy: "stats.rating", order: "desc" },
+    );
+    return active;
+  } catch (error) {
+    console.error("Error finding vehicles with stats:", error);
+    throw new Error("Internal server error");
+  }
+}
+
+async function findVehiclesByLocation(filters = {}, options = {}) {
+  try {
+    // 3. Filter by location with pagination
+    // 3. Filter by location with pagination
+    const mumbai = await Vehicle.findWithStats(
+      { location: "Mumbai", vehicle_type: "bike" },
+      { skip: 0, limit: 20, sortBy: "stats.total_bookings", order: "desc" },
+    );
+    return mumbai;
+  } catch (error) {
+    console.error("Error finding vehicles with stats:", error);
+    throw new Error("Internal server error");
+  }
+}
+
+async function getVehicleWithVehicleId(filters = {}, options = {}) {
+  try {
+    // 4. Get single vehicle by ID
+    const single = await Vehicle.findWithStats({
+      _id: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"),
+    });
+    return single;
+  } catch (error) {
+    console.error("Error finding vehicles with stats:", error);
+    throw new Error("Internal server error");
+  }
+}
+
+async function getVehicleWithoutStats(filters = {}, options = {}) {
+  try {
+    // 5. Vehicles with no stats (null check)
+    const noStats = await Vehicle.findWithStats({
+      stats: { $eq: null },
+    });
+    return noStats;
+  } catch (error) {
+    console.error("Error finding vehicles with stats:", error);
     throw new Error("Internal server error");
   }
 }
@@ -340,4 +406,5 @@ module.exports = {
   deleteVehicle,
   addRating,
   getOwnerVehicleStats,
+  getVehiclesWithStats,
 };

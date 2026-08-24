@@ -6,13 +6,13 @@ const REQUIRED_FIELDS = [
   "company",
   "vehicleName",
   "modelYear",
-  "seatingCapacity",
   "basePricePerHour",
   "rcNumber",
   "pucNumber",
   "insuranceNumber",
   "city",
   "description",
+  "category",
 ];
 
 // ── Create ────────────────────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ const REQUIRED_FIELDS = [
 async function addVehicle(req, res) {
   try {
     const { body, files } = req;
-    const ownerId = req.user._id; // from auth middleware
+    const ownerId = req.user.id; // from auth middleware
 
     // ── Safety net (middleware already blocks, but double check) ──
     if (req.user.role !== "partner") {
@@ -55,6 +55,8 @@ async function addVehicle(req, res) {
         .status(400)
         .json({ error: "At least one vehicle image is required" });
     }
+
+    console.log("Service received data:", body, files, ownerId);
 
     const vehicle = await vehicleService.registerVehicle(body, files, ownerId);
 
@@ -98,7 +100,7 @@ async function getVehicleById(req, res) {
 
 async function getMyVehicles(req, res) {
   try {
-    const vehicles = await vehicleService.getVehiclesByOwner(req.user._id);
+    const vehicles = await vehicleService.getVehiclesByOwner(req.user.id);
     return res.status(200).json({ count: vehicles.length, vehicles });
   } catch (error) {
     return handleError(res, error);
@@ -114,6 +116,22 @@ async function getOwnerVehicleStats(req, res) {
   }
 }
 
+async function getVehiclesWithStats(req, res) {
+  try {
+    const filters = req.query || {};
+    const options = {
+      page: parseInt(req.query.page) || 0,
+      limit: parseInt(req.query.limit) || 20,
+    };
+    const vehicles = await vehicleService.getVehiclesWithStats(
+      filters,
+      options,
+    );
+    return res.status(200).json({ count: vehicles.length, vehicles });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
 // ── Update ────────────────────────────────────────────────────────────────────
 
 async function updateVehicle(req, res) {
@@ -234,4 +252,5 @@ module.exports = {
   deleteVehicle,
   addRating,
   getOwnerVehicleStats,
+  getVehiclesWithStats,
 };

@@ -326,7 +326,10 @@ const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
 
     // 3. Check if user still exists
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(decoded.id);
+
+    // console.log("Authenticated user:", user);
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -357,7 +360,7 @@ const authenticate = async (req, res, next) => {
       id: user.id,
       email: user.email,
       role: user.role,
-      name: user.name,
+      isApproved: user.isApproved,
     };
 
     next();
@@ -465,7 +468,7 @@ const isApprovedClient = (req, res, next) => {
 
 // ── Approved partner check ────────────────────────────────────────────────────
 const isApprovedPartner = (req, res, next) => {
-  if (req.user.role === "partner" && !req.user.partnerProfile?.isApproved) {
+  if (req.user.role === "partner" && !req.user?.isApproved) {
     return res.status(403).json({
       success: false,
       message: "Your partner account is pending admin approval.",

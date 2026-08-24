@@ -39,7 +39,7 @@ router.get("/owner-stats", vehicleController.getOwnerVehicleStats);
 
 // ── Partner Routes ─────────────────────────────────────────────
 router.post(
-  "/add",
+  "/register",
   authenticate, // 1. must be logged in
   authorize("partner"), // 2. must be role = "partner"
   isApprovedPartner, // 3. partner account must be admin-approved,
@@ -52,8 +52,14 @@ router.delete("/:id", authenticate, vehicleController.deleteVehicle);
 
 // ── Public Routes ──────────────────────────────────────────────
 router.get("/get-all", vehicleController.getAllVehicles);
-router.get("/:id", vehicleController.getVehicleById);
+// router.get("/:id", vehicleController.getVehicleById);
 
+router.get(
+  "/with-stats",
+  authenticate,
+  authorize("admin", "partner"),
+  vehicleController.getVehiclesWithStats,
+);
 // ── Admin Routes ───────────────────────────────────────────────
 router.patch(
   "/:id/review",
