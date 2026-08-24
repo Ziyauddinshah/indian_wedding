@@ -263,7 +263,6 @@ const register = async (req, res) => {
         ? "Registration successful. Your partner account is pending and requires admin approval. You will be notified once approved."
         : "Registration successful. Please verify your email to activate your account.";
 
-    console.log(userResponse);
     res.status(201).json({
       success: true,
       message,
@@ -431,6 +430,7 @@ const login = async (req, res) => {
       }
 
       const refreshTokens = user.refreshTokens || [];
+
       refreshTokens.push({
         token: hashedRefresh,
         createdAt: new Date(),
@@ -451,18 +451,18 @@ const login = async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        isApproved: false,
+        isApproved: user.partnerProfile?.isApproved,
         verificationStatus: user.isVerified ? "approved" : "pending",
       };
 
       return res.status(200).json({
         success: true,
         message:
-          "Login successful. Your partner account is pending admin approval.",
+          "Login successful. Your partner account is pending and requires admin approval.",
         token: accessToken,
         user: userPayload,
-        isApproved: false,
-        pendingApproval: true,
+        isApproved: user.partnerProfile?.isApproved,
+        pendingApproval: !user.partnerProfile?.isApproved,
       });
     }
 
