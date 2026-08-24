@@ -36,6 +36,7 @@ const uploadFields = upload.fields([
 ]);
 
 router.get("/owner-stats", vehicleController.getOwnerVehicleStats);
+router.get("/partner/booking-stats/:id", vehicleController.getBookingStats);
 
 // ── Partner Routes ─────────────────────────────────────────────
 router.post(

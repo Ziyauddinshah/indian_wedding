@@ -241,6 +241,15 @@ function handleError(res, error) {
     .json({ error: error.message || "Internal server error" });
 }
 
+async function getBookingStats(req, res) {
+  try {
+    const vehicle = await vehicleService.getBookingStats(req.params.id);
+    return res.json({ stats: vehicle.stats, vehicle });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
 module.exports = {
   addVehicle,
   getAllVehicles,
@@ -253,4 +262,5 @@ module.exports = {
   addRating,
   getOwnerVehicleStats,
   getVehiclesWithStats,
+  getBookingStats,
 };

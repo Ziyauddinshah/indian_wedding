@@ -3,6 +3,7 @@ const fs = require("fs").promises;
 const { v4: uuidv4 } = require("uuid");
 const mongoose = require("mongoose");
 const Vehicle = require("../models/Vehicle");
+const Booking = require("../models/Booking");
 
 // ── File Helpers ──────────────────────────────────────────────────────────────
 
@@ -395,6 +396,148 @@ async function addRating(id, rating) {
   return vehicle;
 }
 
+// Booking Stats Retrieval
+async function getBookingStats(bookingId) {
+  return await Booking.aggregate([
+    {
+      $lookup: {
+        from: "users",
+        localField: "userId",
+        foreignField: "_id",
+        as: "user",
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "partnerId",
+        foreignField: "_id",
+        as: "partner",
+      },
+    },
+    {
+      $lookup: {
+        from: "vehicles",
+        localField: "vehicleId",
+        foreignField: "_id",
+        as: "vehicleData",
+      },
+    },
+    {
+      $lookup: {
+        from: "payments",
+        localField: "paymentId",
+        foreignField: "_id",
+        as: "payment",
+      },
+    },
+    {
+      $unwind: {
+        path: "$user",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $unwind: {
+        path: "$partner",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $unwind: {
+        path: "$vehicleData",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $unwind: {
+        path: "$payment",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $project: {
+        // Booking fields
+        _id: 1,
+        status: 1,
+        pickupOtp: 1,
+        dropOtp: 1,
+        pickup: 1,
+        drop: 1,
+        timeline: 1,
+        fare: 1,
+        paymentStatus: 1,
+        tracking: 1,
+        cancelledBy: 1,
+        cancellationReason: 1,
+        cancellationFee: 1,
+        isReviewedByUser: 1,
+        isReviewedByPartner: 1,
+
+        // User (Customer) fields
+        customer: {
+          _id: "$user._id",
+          name: "$user.name",
+          email: "$user.email",
+          phone: "$user.phone",
+          avatar: "$user.avatar",
+          rating: "$user.rating",
+          createdAt: "$user.createdAt",
+          isActive: "$user.isActive",
+        },
+
+        // Partner (Driver) fields
+        driver: {
+          _id: "$partner._id",
+          name: "$partner.name",
+          email: "$partner.email",
+          phone: "$partner.phone",
+          avatar: "$partner.avatar",
+          rating: "$partner.rating",
+          vehicleNumber: "$partner.vehicleNumber",
+          licenseNumber: "$partner.licenseNumber",
+          isAvailable: "$partner.isAvailable",
+          createdAt: "$partner.createdAt",
+        },
+
+        // Vehicle fields - Updated to match actual vehicle schema
+        vehicle: {
+          _id: "$vehicleData._id",
+          company: "$vehicleData.company",
+          vehicleName: "$vehicleData.vehicleName",
+          modelYear: "$vehicleData.modelYear",
+          vehicleType: "$vehicleData.vehicleType",
+          category: "$vehicleData.category",
+          rcNumber: "$vehicleData.rcNumber",
+          basePricePerHour: "$vehicleData.basePricePerHour",
+          extraHourRate: "$vehicleData.extraHourRate",
+          extraKmRate: "$vehicleData.extraKmRate",
+          currency: "$vehicleData.currency",
+          location: "$vehicleData.location",
+          description: "$vehicleData.description",
+          images: "$vehicleData.images",
+        },
+
+        // Payment fields
+        payment: {
+          _id: "$payment._id",
+          amount: "$payment.amount",
+          status: "$payment.status",
+          method: "$payment.method",
+          transactionId: "$payment.transactionId",
+          gateway: "$payment.gateway",
+          paidAt: "$payment.paidAt",
+          refundedAt: "$payment.refundedAt",
+          gatewayResponse: "$payment.gatewayResponse",
+        },
+      },
+    },
+    {
+      $sort: { "timeline.createdAt": -1 },
+    },
+  ]);
+}
+
 module.exports = {
   registerVehicle,
   getAllVehicles,
@@ -407,4 +550,5 @@ module.exports = {
   addRating,
   getOwnerVehicleStats,
   getVehiclesWithStats,
+  getBookingStats,
 };

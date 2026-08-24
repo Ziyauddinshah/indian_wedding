@@ -1,295 +1,538 @@
-// models/Booking.js
-
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
-// ==================== ENUMS ====================
-
-const BookingStatus = {
-  PENDING: "pending",
-  CONFIRMED: "confirmed",
-  AWAITING_PICKUP: "awaiting_pickup",
-  IN_PROGRESS: "in_progress",
-  OVERDUE: "overdue",
-  RETURNED: "returned",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
-  NO_SHOW: "no_show",
-  DISPUTED: "disputed",
-};
-
-const PaymentStatus = {
-  PENDING: "pending",
-  PARTIALLY_PAID: "partially_paid",
-  PAID: "paid",
-  REFUNDED: "refunded",
-  FAILED: "failed",
-};
-
-const PaymentMethod = {
-  CARD: "card",
-  UPI: "upi",
-  NETBANKING: "netbanking",
-  WALLET: "wallet",
-  CASH: "cash",
-};
-
-const RefundStatus = {
-  PENDING: "pending",
-  PROCESSED: "processed",
-  FAILED: "failed",
-};
-
-// ==================== SUB-SCHEMAS ====================
-
-const CoordinatesSchema = new Schema(
+const bookingSchema = new Schema(
   {
-    lat: { type: Number, required: true },
-    lng: { type: Number, required: true },
-  },
-  { _id: false },
-);
-
-const LocationSchema = new Schema(
-  {
-    address: { type: String, required: true },
-    city: { type: String, required: true },
-    state: { type: String, required: true },
-    pincode: { type: String, required: true },
-    coordinates: { type: CoordinatesSchema, default: null },
-  },
-  { _id: false },
-);
-
-// ==================== MAIN SCHEMA ====================
-
-const BookingSchema = new Schema(
-  {
-    // ── IDENTIFICATION ──────────────────────────────────────
-    bookingNumber: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      // e.g. "BK-2024-00123"
-    },
-
-    // ── VEHICLE INFORMATION ─────────────────────────────────
-    vehicleId: {
-      type: Schema.Types.ObjectId,
-      ref: "Vehicle",
-      required: true,
-      index: true,
-    },
-    vehicleDetails: {
-      name: { type: String, required: true },
-      company: { type: String, required: true },
-      type: { type: String, required: true }, // luxury | ghodi | royal
-      pricePerDay: { type: Number, required: true, min: 0 },
-      images: [{ type: String }],
-    },
-
-    // ── USER INFORMATION ────────────────────────────────────
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
       index: true,
     },
-    userDetails: {
-      name: { type: String, required: true },
-      email: { type: String, required: true },
-      phone: { type: String, required: true },
-      address: { type: String, default: null },
-      profileImage: { type: String, default: null },
+    partnerId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
+    vehicleId: {
+      type: Schema.Types.ObjectId,
+      ref: "Vehicle",
+      required: true,
     },
 
-    // ── RENTAL DETAILS ──────────────────────────────────────
-    rentalDetails: {
-      startDate: { type: Date, required: true },
-      endDate: { type: Date, required: true },
-      totalDays: { type: Number, required: true, min: 1 },
-      pickupLocation: { type: LocationSchema, required: true },
-      returnLocation: { type: LocationSchema, required: true },
-      isSameLocation: { type: Boolean, required: true, default: true },
-    },
-
-    // ── PRICING DETAILS ─────────────────────────────────────
-    pricing: {
-      subtotal: { type: Number, required: true, min: 0 },
-      tax: { type: Number, required: true, min: 0, default: 0 },
-      discount: { type: Number, required: true, min: 0, default: 0 },
-      discountCode: { type: String, default: null },
-      securityDeposit: { type: Number, required: true, min: 0, default: 0 },
-      deliveryCharges: { type: Number, required: true, min: 0, default: 0 },
-      cleaningCharges: { type: Number, required: true, min: 0, default: 0 },
-      totalAmount: { type: Number, required: true, min: 0 },
-      amountPaid: { type: Number, required: true, min: 0, default: 0 },
-      paymentStatus: {
-        type: String,
-        enum: Object.values(PaymentStatus),
-        default: PaymentStatus.PENDING,
-      },
-    },
-
-    // ── PAYMENT INFORMATION ─────────────────────────────────
-    paymentDetails: {
-      transactionId: { type: String, default: null },
-      paymentMethod: {
-        type: String,
-        enum: Object.values(PaymentMethod),
-        required: true,
-      },
-      paymentGateway: { type: String, required: true }, // razorpay | stripe | paytm …
-      paidAt: { type: Date, default: null },
-      refundAmount: { type: Number, min: 0, default: null },
-      refundStatus: {
-        type: String,
-        enum: [...Object.values(RefundStatus), null],
-        default: null,
-      },
-      refundTransactionId: { type: String, default: null },
-      invoiceNumber: { type: String, default: null },
-      invoiceUrl: { type: String, default: null },
-    },
-
-    // ── DRIVER INFORMATION ──────────────────────────────────
-    driverDetails: {
-      isWithDriver: { type: Boolean, default: false },
-      driverId: {
-        type: Schema.Types.ObjectId,
-        ref: "Driver",
-        default: null,
-      },
-      driverName: { type: String, default: null },
-      driverPhone: { type: String, default: null },
-      driverLicense: { type: String, default: null },
-      driverCharge: { type: Number, min: 0, default: 0 },
-    },
-
-    // ── DOCUMENTS ───────────────────────────────────────────
-    documents: {
-      agreementSigned: { type: Boolean, default: false },
-      agreementUrl: { type: String, default: null },
-      idProofRenter: { type: String, default: null },
-      drivingLicense: { type: String, default: null },
-      vehiclePhotos: {
-        pickup: [{ type: String }],
-        return: [{ type: String }],
-      },
-    },
-
-    // ── STATUS & TIMELINE ───────────────────────────────────
     status: {
       type: String,
-      enum: Object.values(BookingStatus),
-      default: BookingStatus.PENDING,
+      enum: [
+        "pending",
+        "confirmed",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "disputed",
+      ],
+      default: "pending",
+      required: true,
       index: true,
     },
 
+    pickupOtp: {
+      type: String,
+      required: true,
+      length: 4,
+    },
+    dropOtp: {
+      type: String,
+      required: true,
+      length: 4,
+    },
+
+    pickup: {
+      address: {
+        type: String,
+        required: true,
+      },
+      location: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          default: "Point",
+        },
+        coordinates: {
+          type: [Number],
+          required: true,
+          index: "2dsphere",
+        },
+      },
+      landmark: {
+        type: String,
+      },
+      instructions: {
+        type: String,
+      },
+    },
+
+    drop: {
+      address: {
+        type: String,
+        required: true,
+      },
+      location: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          default: "Point",
+        },
+        coordinates: {
+          type: [Number],
+          required: true,
+          index: "2dsphere",
+        },
+      },
+      landmark: {
+        type: String,
+      },
+      instructions: {
+        type: String,
+      },
+    },
+
     timeline: {
-      bookingDate: { type: Date, required: true, default: Date.now },
-      confirmedAt: { type: Date, default: null },
-      pickupAt: { type: Date, default: null },
-      returnAt: { type: Date, default: null },
-      cancelledAt: { type: Date, default: null },
-      completedAt: { type: Date, default: null },
-      lastUpdated: { type: Date, required: true, default: Date.now },
-    },
-
-    // ── CANCELLATION DETAILS ────────────────────────────────
-    cancellation: {
-      cancelledBy: {
-        type: String,
-        enum: ["user", "vendor", "system"],
+      createdAt: {
+        type: Date,
+        default: Date.now,
+        required: true,
       },
-      reason: { type: String },
-      cancelledAt: { type: Date },
-      refundAmount: { type: Number, min: 0, default: 0 },
-      cancellationCharges: { type: Number, min: 0, default: 0 },
-      refundStatus: {
-        type: String,
-        enum: Object.values(RefundStatus),
+      confirmedAt: {
+        type: Date,
+      },
+      partnerAssignedAt: {
+        type: Date,
+      },
+      startedAt: {
+        type: Date,
+      },
+      completedAt: {
+        type: Date,
+      },
+      cancelledAt: {
+        type: Date,
+      },
+      disputedAt: {
+        type: Date,
+      },
+      estimatedArrival: {
+        type: Date,
+      },
+      estimatedDropTime: {
+        type: Date,
       },
     },
 
-    // ── RATINGS & REVIEW ────────────────────────────────────
-    review: {
-      rating: { type: Number, min: 1, max: 5 },
-      comment: { type: String },
-      reviewedAt: { type: Date },
-      vendorResponse: { type: String, default: null },
-      vendorResponseAt: { type: Date, default: null },
+    fare: {
+      base: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      distanceCharge: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      timeCharge: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      surgeMultiplier: {
+        type: Number,
+        default: 1.0,
+        min: 1.0,
+      },
+      subtotal: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      discount: {
+        type: Number,
+        default: 0,
+      },
+      tax: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      total: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      currency: {
+        type: String,
+        default: "INR",
+        enum: ["INR", "USD", "EUR", "GBP"],
+      },
+      couponCode: {
+        type: String,
+      },
+      couponDiscount: {
+        type: Number,
+        default: 0,
+      },
+      waitCharge: {
+        type: Number,
+        default: 0,
+      },
+      tollCharge: {
+        type: Number,
+        default: 0,
+      },
     },
 
-    // ── NOTIFICATIONS ───────────────────────────────────────
-    notifications: {
-      bookingConfirmed: { type: Boolean, default: false },
-      pickupReminder: { type: Boolean, default: false },
-      returnReminder: { type: Boolean, default: false },
-      paymentReminder: { type: Boolean, default: false },
-      reviewRequest: { type: Boolean, default: false },
+    paymentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Payment",
+    },
+    paymentStatus: {
+      type: String,
+      enum: [
+        "pending",
+        "processing",
+        "paid",
+        "failed",
+        "refunded",
+        "partially_refunded",
+      ],
+      default: "pending",
     },
 
-    // ── ADDITIONAL FIELDS ───────────────────────────────────
-    specialRequests: { type: String, default: null },
-    notes: { type: String, default: null },
+    cancelledBy: {
+      type: String,
+      enum: ["user", "partner", "system", null],
+      default: null,
+    },
+    cancellationReason: {
+      type: String,
+      enum: [
+        "changed_mind",
+        "ride_taking_too_long",
+        "unavailable",
+        "vehicle_issue",
+        "traffic",
+        "wrong_address",
+        "weather",
+        "other",
+      ],
+      default: null,
+    },
+    cancellationReasonText: {
+      type: String,
+    },
+    cancellationFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    tracking: [
+      {
+        coordinates: {
+          type: [Number],
+          required: true,
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+        accuracy: {
+          type: Number,
+          min: 0,
+        },
+        speed: {
+          type: Number,
+          min: 0,
+        },
+        heading: {
+          type: Number,
+          min: 0,
+          max: 360,
+        },
+        altitude: {
+          type: Number,
+        },
+      },
+    ],
+
+    isReviewedByUser: {
+      type: Boolean,
+      default: false,
+    },
+    isReviewedByPartner: {
+      type: Boolean,
+      default: false,
+    },
+
+    userRating: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    partnerRating: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    userFeedback: {
+      type: String,
+      maxlength: 500,
+    },
+    partnerFeedback: {
+      type: String,
+      maxlength: 500,
+    },
 
     metadata: {
-      source: { type: String, default: null }, // Web | App | WhatsApp …
-      utmSource: { type: String, default: null },
-      utmCampaign: { type: String, default: null },
-      ipAddress: { type: String, default: null },
-      deviceInfo: { type: String, default: null },
+      deviceInfo: {
+        type: String,
+      },
+      appVersion: {
+        type: String,
+      },
+      ipAddress: {
+        type: String,
+      },
+      userAgent: {
+        type: String,
+      },
+      estimatedDistance: {
+        type: Number,
+        min: 0,
+      },
+      estimatedDuration: {
+        type: Number,
+        min: 0,
+      },
+      actualDistance: {
+        type: Number,
+        min: 0,
+      },
+      actualDuration: {
+        type: Number,
+        min: 0,
+      },
     },
 
-    // ── AUDIT FIELDS ────────────────────────────────────────
-    audit: {
-      createdBy: { type: String, required: true },
-      createdAt: { type: Date, required: true, default: Date.now },
-      updatedBy: { type: String, required: true },
-      updatedAt: { type: Date, required: true, default: Date.now },
-      version: { type: Number, required: true, default: 1 }, // optimistic locking
+    retryCount: {
+      type: Number,
+      default: 0,
+    },
+    lastRetryAt: {
+      type: Date,
     },
   },
   {
-    timestamps: false, // managed manually in `audit` block
-    versionKey: false,
+    timestamps: true,
+    collection: "bookings",
   },
+  {
+  timestamps: true,
+  collection: 'bookings',
+  strict: true,
+  versionKey: '__v',
+  minimize: false,
+  
+  // Auto-index for production
+  autoIndex: process.env.NODE_ENV !== 'production',
+  
+  // Customize JSON output
+  toJSON: {
+    virtuals: true,
+    transform: function(doc, ret) {
+      delete ret.__v;
+      return ret;
+    }
+  },
+  
+  toObject: {
+    virtuals: true
+  }
+}
 );
 
-// ==================== INDEXES ====================
 
-// Speed up common queries
-BookingSchema.index({ userId: 1, status: 1 });
-BookingSchema.index({ vehicleId: 1, status: 1 });
-BookingSchema.index({
-  "rentalDetails.startDate": 1,
-  "rentalDetails.endDate": 1,
+// Enable sharding for large datasets
+bookingSchema.options.shardKey = { userId: 1 };
+
+// Indexes for performance
+bookingSchema.index({ userId: 1, status: 1 });
+bookingSchema.index({ partnerId: 1, status: 1 });
+bookingSchema.index({ vehicleId: 1, status: 1 });
+bookingSchema.index({ "pickup.location": "2dsphere" });
+bookingSchema.index({ "drop.location": "2dsphere" });
+bookingSchema.index({ status: 1, "timeline.createdAt": -1 });
+bookingSchema.index({ paymentStatus: 1 });
+bookingSchema.index({ "timeline.createdAt": -1 });
+bookingSchema.index({ status: 1, "timeline.completedAt": 1 });
+bookingSchema.index({ cancelledAt: 1 }, { sparse: true });
+
+// Compound indexes for common queries
+bookingSchema.index({
+  userId: 1,
+  "timeline.createdAt": -1,
 });
-BookingSchema.index({ "pricing.paymentStatus": 1 });
-BookingSchema.index({ bookingNumber: 1 }, { unique: true });
 
-// ==================== PRE-SAVE HOOK ====================
+bookingSchema.index({
+  partnerId: 1,
+  status: 1,
+  "timeline.createdAt": -1,
+});
 
-// Auto-bump audit version and update lastUpdated on every save
-BookingSchema.pre("save", function (next) {
-  if (!this.isNew) {
-    this.audit.version += 1;
-    this.audit.updatedAt = new Date();
-    this.timeline.lastUpdated = new Date();
+// Pre-save middleware
+bookingSchema.pre("save", function (next) {
+  // Auto-calculate subtotal and total if not provided
+  if (this.isNew && this.fare) {
+    this.fare.subtotal =
+      this.fare.base + this.fare.distanceCharge + this.fare.timeCharge;
+    this.fare.subtotal = this.fare.subtotal * this.fare.surgeMultiplier;
+    this.fare.total = this.fare.subtotal + this.fare.tax - this.fare.discount;
   }
+
+  // Set timeline dates based on status changes
+  if (this.isModified("status")) {
+    const now = new Date();
+    switch (this.status) {
+      case "confirmed":
+        this.timeline.confirmedAt = now;
+        break;
+      case "in_progress":
+        this.timeline.startedAt = now;
+        break;
+      case "completed":
+        this.timeline.completedAt = now;
+        break;
+      case "cancelled":
+        this.timeline.cancelledAt = now;
+        break;
+      case "disputed":
+        this.timeline.disputedAt = now;
+        break;
+    }
+  }
+
   next();
 });
 
-// ==================== MODEL ====================
+// Instance methods
+bookingSchema.methods = {
+  // Calculate total fare
+  calculateTotal: function () {
+    const fare = this.fare;
+    fare.subtotal =
+      (fare.base + fare.distanceCharge + fare.timeCharge) *
+      fare.surgeMultiplier;
+    fare.total = fare.subtotal + fare.tax - fare.discount;
+    return fare.total;
+  },
 
-const Booking = mongoose.model("Booking", BookingSchema);
+  // Check if booking can be cancelled
+  canCancel: function () {
+    return ["pending", "confirmed", "in_progress"].includes(this.status);
+  },
 
-module.exports = {
-  Booking,
-  BookingStatus,
-  PaymentStatus,
-  PaymentMethod,
-  RefundStatus,
+  // Check if booking can be disputed
+  canDispute: function () {
+    return this.status === "completed" && !this.isReviewedByUser;
+  },
+
+  // Get duration of trip
+  getTripDuration: function () {
+    if (this.timeline.startedAt && this.timeline.completedAt) {
+      return (this.timeline.completedAt - this.timeline.startedAt) / 1000 / 60; // in minutes
+    }
+    return null;
+  },
 };
+
+// Static methods
+bookingSchema.statics = {
+  // Find active bookings by userId
+  findActiveByUser: function (userId) {
+    return this.find({
+      userId: userId,
+      status: { $in: ["pending", "confirmed", "in_progress"] },
+    }).sort({ "timeline.createdAt": -1 });
+  },
+
+  // Find bookings by date range
+  findByDateRange: function (startDate, endDate) {
+    return this.find({
+      "timeline.createdAt": {
+        $gte: startDate,
+        $lte: endDate,
+      },
+    });
+  },
+
+  // Get revenue summary
+  getRevenueSummary: function (startDate, endDate) {
+    return this.aggregate([
+      {
+        $match: {
+          status: "completed",
+          "timeline.completedAt": { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$fare.total" },
+          totalBookings: { $sum: 1 },
+          avgFare: { $avg: "$fare.total" },
+        },
+      },
+    ]);
+  },
+};
+
+const bookingValidation = {
+  pickupOtp: {
+    type: String,
+    required: true,
+    validate: {
+      validator: function(v) {
+        return /^\d{4}$/.test(v);
+      },
+      message: props => `${props.value} is not a valid 4-digit OTP!`
+    }
+  },
+  
+  status: {
+    type: String,
+    required: true,
+    validate: {
+      validator: function(v) {
+        return ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'disputed'].includes(v);
+      },
+      message: props => `${props.value} is not a valid status!`
+    }
+  }
+};
+
+
+// Enable sharding for large datasets
+bookingSchema.options.shardKey = { userId: 1 };
+
+// Virtual fields
+bookingSchema.virtual("isActive").get(function () {
+  return ["pending", "confirmed", "in_progress"].includes(this.status);
+});
+
+bookingSchema.virtual("isCompleted").get(function () {
+  return this.status === "completed";
+});
+
+// Create model
+const Booking = mongoose.model("Booking", bookingSchema);
+
+module.exports = Booking;
