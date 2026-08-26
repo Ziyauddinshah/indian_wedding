@@ -77,6 +77,7 @@ export default function UnauthorizedPage() {
 
   const permissionMatrix: PermissionMatrix[] = [
     { resource: 'View Dashboard', userAccess: true, requiredRole: 'user', userRole },
+    { resource: 'View Bookings', userAccess: true, requiredRole: 'user', userRole },
     { resource: 'Manage Users', userAccess: false, requiredRole: 'admin', userRole },
     { resource: 'System Settings', userAccess: false, requiredRole: 'admin', userRole },
     { resource: 'Audit Logs', userAccess: false, requiredRole: 'superadmin', userRole },

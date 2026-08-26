@@ -269,18 +269,6 @@ const bookingsData = [
   },
 ];
 
-// const bookingsData = []; // Initialize as empty array
-
-useEffect(() => {
-  // Fetch bookings data from API if needed
-  const fetchBookings = axios.get('http://localhost:5000/api/vehicles/partner/booking-stats/432557');
-  console.log('Fetched bookings data:', fetchBookings);
-  // bookingsData.push(fetchBookings); // Add fetched data to bookingsData array
-  if(fetchBookings) {
-    console.log('Fetched bookings data:', fetchBookings);
-  }
-}, []);
-
 
 // db.bookings.aggregate([
 //   {
@@ -402,6 +390,17 @@ export default function PartnerBookings() {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+
+  
+useEffect(() => {
+  // Fetch bookings data from API if needed
+  const fetchBookings = axios.get('http://localhost:5000/api/vehicles/partner/booking-stats/432557');
+  console.log('Fetched bookings data:', fetchBookings);
+  // bookingsData.push(fetchBookings); // Add fetched data to bookingsData array
+  if(fetchBookings) {
+    console.log('Fetched bookings data:', fetchBookings);
+  }
+}, []);
 
   // Add a function to handle booking actions
   const handleBookingAction = (action: string) => {
