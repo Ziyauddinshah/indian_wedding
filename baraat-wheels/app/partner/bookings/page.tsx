@@ -1,922 +1,533 @@
 'use client';
-
-import { useState, useEffect } from 'react';
+// components/BookingList.jsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import BookingCard from '../../components/partner/BookingCard';
+import axios from 'axios';
 import { 
-  Search, Filter, Calendar, Download, MoreVertical, 
-  Eye, MessageCircle, CheckCircle, XCircle, Clock,
-  TrendingUp, AlertCircle, Star, IndianRupee, Users,
-  ChevronDown, ChevronLeft, ChevronRight, MapPin,
-  Car, CalendarDays, User, Phone, Mail, FileText,
-  Sparkles, BarChart3, RefreshCw, CheckSquare
+  AlertCircle, RefreshCw, Loader2, CalendarDays, 
+  Clock, IndianRupee, Star, TrendingUp, Search, 
+  X, Filter, CheckCircle2, ShieldAlert
 } from 'lucide-react';
-import BookingDetailsModal from '@/app/components/partner/BookingDetailsModel';
-import axios, { type AxiosResponse } from 'axios';
 
-
-
-const bookingsData = [
-  {
-    id: 1,
-    bookingId: 'BK-2024-001',
-    customer: {
-      name: 'Aarav Sharma',
-      phone: '+91 9876543210',
-      email: 'aarav@example.com',
-      avatar: 'AS',
-    },
-    vehicle: {
-      name: 'Mercedes S-Class 2024',
-      type: 'luxury',
-      category: 'Luxury Sedan',
-      image: 'https://images.unsplash.com/photo-1553440569-bcc63803a83d?w=400&h=200&fit=crop',
-    },
-    details: {
-      date: '25 Dec 2024',
-      time: '06:00 PM',
-      duration: '4 hours',
-      pickup: 'Taj Hotel, Mumbai',
-      dropoff: 'Grand Hyatt, Mumbai',
-      guests: 4,
-    },
-    payment: {
-      amount: '₹25,000',
-      status: 'paid',
-      method: 'UPI',
-      advance: '₹10,000',
-    },
-    status: 'confirmed',
-    timeline: [
-      { step: 'Requested', time: '24 Nov, 10:30 AM', status: 'completed' },
-      { step: 'Confirmed', time: '24 Nov, 11:15 AM', status: 'completed' },
-      { step: 'Advance Paid', time: '24 Nov, 02:45 PM', status: 'completed' },
-      { step: 'Vehicle Assigned', time: '24 Nov, 03:30 PM', status: 'completed' },
-      { step: 'Upcoming', time: '25 Dec, 06:00 PM', status: 'current' },
-      { step: 'Completed', time: '-', status: 'pending' },
-    ],
-    notes: 'Customer requested champagne service',
-    createdAt: '24 Nov 2024',
-    color: 'from-purple-500 to-pink-500',
-  },
-  {
-    id: 2,
-    bookingId: 'BK-2024-002',
-    customer: {
-      name: 'Priya Patel',
-      phone: '+91 8765432109',
-      email: 'priya@example.com',
-      avatar: 'PP',
-    },
-    vehicle: {
-      name: 'Royal Elephant Decorated',
-      type: 'royal',
-      category: 'Royal Procession',
-      image: 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=400&h=200&fit=crop',
-    },
-    details: {
-      date: '26 Dec 2024',
-      time: '10:00 AM',
-      duration: '8 hours',
-      pickup: 'Udaipur Palace',
-      dropoff: 'Lake Palace Hotel',
-      guests: 12,
-    },
-    payment: {
-      amount: '₹45,000',
-      status: 'pending',
-      method: 'Bank Transfer',
-      advance: '₹15,000',
-    },
-    status: 'pending',
-    timeline: [
-      { step: 'Requested', time: '25 Nov, 02:15 PM', status: 'completed' },
-      { step: 'Confirmed', time: 'Pending', status: 'current' },
-      { step: 'Advance Paid', time: '-', status: 'pending' },
-      { step: 'Vehicle Assigned', time: '-', status: 'pending' },
-      { step: 'Upcoming', time: '26 Dec, 10:00 AM', status: 'pending' },
-      { step: 'Completed', time: '-', status: 'pending' },
-    ],
-    notes: 'Wedding ceremony - need decoration',
-    createdAt: '25 Nov 2024',
-    color: 'from-emerald-500 to-teal-600',
-  },
-  {
-    id: 3,
-    bookingId: 'BK-2024-003',
-    customer: {
-      name: 'Rohan Mehta',
-      phone: '+91 7654321098',
-      email: 'rohan@example.com',
-      avatar: 'RM',
-    },
-    vehicle: {
-      name: 'BMW 7 Series Luxury',
-      type: 'luxury',
-      category: 'Executive Sedan',
-      image: 'https://images.unsplash.com/photo-1555212697-194d092e3b8f?w=400&h=200&fit=crop',
-    },
-    details: {
-      date: '28 Dec 2024',
-      time: '11:00 AM',
-      duration: '12 hours',
-      pickup: 'Bangalore Airport',
-      dropoff: 'ITC Gardenia',
-      guests: 3,
-    },
-    payment: {
-      amount: '₹28,000',
-      status: 'paid',
-      method: 'Credit Card',
-      advance: '₹14,000',
-    },
-    status: 'confirmed',
-    timeline: [
-      { step: 'Requested', time: '26 Nov, 09:45 AM', status: 'completed' },
-      { step: 'Confirmed', time: '26 Nov, 10:30 AM', status: 'completed' },
-      { step: 'Advance Paid', time: '26 Nov, 11:15 AM', status: 'completed' },
-      { step: 'Vehicle Assigned', time: 'Completed', status: 'completed' },
-      { step: 'Upcoming', time: '28 Dec, 11:00 AM', status: 'current' },
-      { step: 'Completed', time: '-', status: 'pending' },
-    ],
-    notes: 'Airport pickup - flight BA198',
-    createdAt: '26 Nov 2024',
-    color: 'from-blue-500 to-cyan-500',
-  },
-  {
-    id: 4,
-    bookingId: 'BK-2024-004',
-    customer: {
-      name: 'Neha Gupta',
-      phone: '+91 6543210987',
-      email: 'neha@example.com',
-      avatar: 'NG',
-    },
-    vehicle: {
-      name: 'Traditional Ghodi Set',
-      type: 'ghodi',
-      category: 'Traditional',
-      image: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=400&h=200&fit=crop',
-    },
-    details: {
-      date: '29 Dec 2024',
-      time: '04:00 PM',
-      duration: '5 hours',
-      pickup: 'Jaipur Fort',
-      dropoff: 'City Palace',
-      guests: 8,
-    },
-    payment: {
-      amount: '₹15,000',
-      status: 'cancelled',
-      method: 'UPI',
-      advance: '₹7,500',
-    },
-    status: 'cancelled',
-    timeline: [
-      { step: 'Requested', time: '27 Nov, 03:30 PM', status: 'completed' },
-      { step: 'Confirmed', time: '27 Nov, 04:15 PM', status: 'completed' },
-      { step: 'Advance Paid', time: '27 Nov, 05:00 PM', status: 'completed' },
-      { step: 'Cancelled', time: '28 Nov, 10:00 AM', status: 'completed' },
-      { step: 'Refund Initiated', time: '28 Nov, 02:30 PM', status: 'completed' },
-      { step: 'Refund Completed', time: '29 Nov, 11:00 AM', status: 'completed' },
-    ],
-    notes: 'Cancelled due to weather conditions',
-    createdAt: '27 Nov 2024',
-    color: 'from-amber-500 to-orange-500',
-  },
-  {
-    id: 5,
-    bookingId: 'BK-2024-005',
-    customer: {
-      name: 'Vikram Singh',
-      phone: '+91 5432109876',
-      email: 'vikram@example.com',
-      avatar: 'VS',
-    },
-    vehicle: {
-      name: 'Audi A8 L Chauffeur',
-      type: 'luxury',
-      category: 'Premium Sedan',
-      image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400&h=200&fit=crop',
-    },
-    details: {
-      date: 'Today',
-      time: '02:00 PM',
-      duration: '6 hours',
-      pickup: 'Conrad Hotel',
-      dropoff: 'Marina Bay',
-      guests: 2,
-    },
-    payment: {
-      amount: '₹22,500',
-      status: 'paid',
-      method: 'Wallet',
-      advance: '₹11,250',
-    },
-    status: 'ongoing',
-    timeline: [
-      { step: 'Requested', time: 'Yesterday, 10:00 AM', status: 'completed' },
-      { step: 'Confirmed', time: 'Yesterday, 10:45 AM', status: 'completed' },
-      { step: 'Advance Paid', time: 'Yesterday, 11:30 AM', status: 'completed' },
-      { step: 'Vehicle Assigned', time: 'Yesterday, 12:15 PM', status: 'completed' },
-      { step: 'Ongoing', time: 'Today, 02:00 PM', status: 'current' },
-      { step: 'Completed', time: 'Today, 08:00 PM', status: 'pending' },
-    ],
-    notes: 'Anniversary celebration',
-    createdAt: 'Yesterday',
-    color: 'from-gray-700 to-gray-900',
-  },
-  {
-    id: 6,
-    bookingId: 'BK-2024-006',
-    customer: {
-      name: 'Ananya Reddy',
-      phone: '+91 4321098765',
-      email: 'ananya@example.com',
-      avatar: 'AR',
-    },
-    vehicle: {
-      name: 'Vintage Rolls Royce',
-      type: 'royal',
-      category: 'Vintage',
-      image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=400&h=200&fit=crop',
-    },
-    details: {
-      date: '30 Dec 2024',
-      time: '07:00 PM',
-      duration: '3 hours',
-      pickup: 'Hyderabad Convention',
-      dropoff: 'Falaknuma Palace',
-      guests: 6,
-    },
-    payment: {
-      amount: '₹55,000',
-      status: 'pending',
-      method: 'Bank Transfer',
-      advance: '₹27,500',
-    },
-    status: 'pending',
-    timeline: [
-      { step: 'Requested', time: 'Today, 09:00 AM', status: 'completed' },
-      { step: 'Awaiting Confirmation', time: 'Now', status: 'current' },
-      { step: 'Advance Payment', time: '-', status: 'pending' },
-      { step: 'Vehicle Assignment', time: '-', status: 'pending' },
-      { step: 'Upcoming', time: '30 Dec, 07:00 PM', status: 'pending' },
-      { step: 'Completed', time: '-', status: 'pending' },
-    ],
-    notes: 'Corporate event - red carpet required',
-    createdAt: 'Today',
-    color: 'from-rose-500 to-red-500',
-  },
-];
-
-
-// db.bookings.aggregate([
-//   {
-//     // Lookup Vehicle details
-//     $lookup: {
-//       from: "vehicles",
-//       localField: "vehicleId",
-//       foreignField: "_id",
-//       as: "vehicleDetails"
-//     }
-//   },
-//   {
-//     // Lookup Payment details
-//     $lookup: {
-//       from: "payments",
-//       localField: "paymentId",
-//       foreignField: "_id",
-//       as: "paymentDetails"
-//     }
-//   },
-//   {
-//     // Lookup User (Customer) details
-//     $lookup: {
-//       from: "users",
-//       localField: "userId",
-//       foreignField: "_id",
-//       as: "userDetails"
-//     }
-//   },
-//   {
-//     // Lookup Partner (Driver) details
-//     $lookup: {
-//       from: "users",
-//       localField: "partnerId",
-//       foreignField: "_id",
-//       as: "partnerDetails"
-//     }
-//   },
-//   {
-//     // Unwind arrays (convert to objects)
-//     $addFields: {
-//       vehicleDetails: { $arrayElemAt: ["$vehicleDetails", 0] },
-//       paymentDetails: { $arrayElemAt: ["$paymentDetails", 0] },
-//       userDetails: { $arrayElemAt: ["$userDetails", 0] },
-//       partnerDetails: { $arrayElemAt: ["$partnerDetails", 0] }
-//     }
-//   },
-//   {
-//     // Project only needed fields (optional)
-//     $project: {
-//       "_id": 1,
-//       "status": 1,
-//       "pickup": 1,
-//       "drop": 1,
-//       "pickupOtp": 1,
-//       "dropOtp": 1,
-//       "timeline": 1,
-//       "fare": 1,
-//       "tracking": 1,
-//       "cancelledBy": 1,
-//       "cancellationReason": 1,
-//       "cancellationFee": 1,
-      
-//       // Vehicle details
-//       "vehicleDetails._id": 1,
-//       "vehicleDetails.registrationNumber": 1,
-//       "vehicleDetails.model": 1,
-//       "vehicleDetails.make": 1,
-//       "vehicleDetails.color": 1,
-//       "vehicleDetails.type": 1,
-      
-//       // Payment details
-//       "paymentDetails._id": 1,
-//       "paymentDetails.amount": 1,
-//       "paymentDetails.status": 1,
-//       "paymentDetails.method": 1,
-//       "paymentDetails.transactionId": 1,
-//       "paymentDetails.paidAt": 1,
-      
-//       // User (Customer) details
-//       "userDetails._id": 1,
-//       "userDetails.name": 1,
-//       "userDetails.email": 1,
-//       "userDetails.phone": 1,
-      
-//       // Partner (Driver) details
-//       "partnerDetails._id": 1,
-//       "partnerDetails.name": 1,
-//       "partnerDetails.email": 1,
-//       "partnerDetails.phone": 1,
-//       "partnerDetails.rating": 1
-//     }
-//   }
-// ])
-
-
-const statusFilters = [
-  { id: 'all', label: 'All Bookings', count: 24, color: 'bg-gradient-to-r from-blue-500 to-purple-500' },
-  { id: 'pending', label: 'Pending', count: 5, color: 'bg-gradient-to-r from-amber-500 to-orange-500' },
-  { id: 'confirmed', label: 'Confirmed', count: 12, color: 'bg-gradient-to-r from-emerald-500 to-teal-600' },
-  { id: 'ongoing', label: 'Ongoing', count: 3, color: 'bg-gradient-to-r from-blue-500 to-cyan-500' },
-  { id: 'completed', label: 'Completed', count: 15, color: 'bg-gradient-to-r from-purple-500 to-pink-500' },
-  { id: 'cancelled', label: 'Cancelled', count: 4, color: 'bg-gradient-to-r from-red-500 to-pink-600' },
-];
-
-const quickStats = [
-  { label: 'Today\'s Bookings', value: '3', change: '+1', icon: <CalendarDays />, color: 'text-blue-600' },
-  { label: 'Pending Actions', value: '5', change: '+2', icon: <AlertCircle />, color: 'text-amber-600' },
-  { label: 'Revenue Today', value: '₹67,500', change: '+28%', icon: <IndianRupee />, color: 'text-emerald-600' },
-  { label: 'Avg. Rating', value: '4.8', change: '+0.2', icon: <Star />, color: 'text-purple-600' },
-];
-
-export default function PartnerBookings() {
-  const [bookings, setBookings] = useState(bookingsData);
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [dateRange, setDateRange] = useState('all');
-  const [selectedBooking, setSelectedBooking] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
-
-  
-useEffect(() => {
-  // Fetch bookings data from API if needed
-  const fetchBookings = axios.get('http://localhost:5000/api/vehicles/partner/booking-stats/432557');
-  console.log('Fetched bookings data:', fetchBookings);
-  // bookingsData.push(fetchBookings); // Add fetched data to bookingsData array
-  if(fetchBookings) {
-    console.log('Fetched bookings data:', fetchBookings);
-  }
-}, []);
-
-  // Add a function to handle booking actions
-  const handleBookingAction = (action: string) => {
-    if (selectedBooking) {
-      switch(action) {
-        case 'confirm':
-          // Update booking status to confirmed
-          setBookings(bookings.map(b => 
-            b.id === selectedBooking ? { ...b, status: 'confirmed' } : b
-          ));
-          alert(`Booking ${selectedBooking} confirmed!`);
-          break;
-        case 'reject':
-          // Update booking status to cancelled
-          setBookings(bookings.map(b => 
-            b.id === selectedBooking ? { ...b, status: 'cancelled' } : b
-          ));
-          alert(`Booking ${selectedBooking} rejected!`);
-          break;
-        case 'message':
-          // Open messaging interface
-          alert(`Open messaging for booking ${selectedBooking}`);
-          break;
-        default:
-          console.log(`Action: ${action} on booking ${selectedBooking}`);
-      }
-      setSelectedBooking(null); // Close modal after action
-    }
-  };
-
-  // Filter bookings
-  const filteredBookings = bookings.filter(booking => {
-    const matchesStatus = selectedStatus === 'all' || booking.status === selectedStatus;
-    const matchesSearch = searchQuery === '' || 
-      booking.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.vehicle.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.bookingId.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesStatus && matchesSearch;
+const BookingList = () => {
+  const [allBookings, setAllBookings] = useState<any[]>([]);
+  const [filteredBookings, setFilteredBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage] = useState<number>(6);
+  const [filters, setFilters] = useState({
+    status: '',
+    search: '',
+    dateRange: { start: '', end: '' }
   });
 
+  // Calculate dynamic stats from bookings data or fallback to dummy defaults
+  const stats = useMemo(() => {
+    const hasData = allBookings.length > 0;
+
+    // 1. Today's Bookings
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayCount = hasData
+      ? allBookings.filter(b => b.timeline?.createdAt && b.timeline.createdAt.startsWith(todayStr)).length
+      : 3;
+    const todayDisplay = hasData && todayCount > 0 ? todayCount : 3;
+
+    // 2. Pending Requests
+    const pendingCount = hasData
+      ? allBookings.filter(b => b.status?.toLowerCase() === 'pending').length
+      : 5;
+    const pendingDisplay = hasData ? pendingCount : 5;
+
+    // 3. Total Revenue
+    const revenueSum = hasData
+      ? allBookings.reduce((sum, b) => sum + (Number(b.fare?.total) || 0), 0)
+      : 127000;
+    const revenueDisplay = hasData && revenueSum > 0
+      ? `₹${revenueSum.toLocaleString('en-IN')}`
+      : '₹1,27,000';
+
+    // 4. Average Rating
+    const avgRating = '4.8';
+
+    return [
+      {
+        id: 'today-bookings',
+        label: "Today's Bookings",
+        value: String(todayDisplay),
+        change: '+12% from yesterday',
+        isPositive: true,
+        icon: CalendarDays,
+        color: 'text-blue-600',
+        bg: 'bg-blue-50',
+        border: 'border-blue-100',
+        action: () => setFilters(prev => ({ ...prev, dateRange: { start: todayStr, end: todayStr } }))
+      },
+      {
+        id: 'pending-requests',
+        label: 'Pending Requests',
+        value: String(pendingDisplay),
+        change: `${pendingDisplay} awaiting confirmation`,
+        isPositive: pendingDisplay === 0,
+        icon: Clock,
+        color: 'text-amber-600',
+        bg: 'bg-amber-50',
+        border: 'border-amber-100',
+        action: () => setFilters(prev => ({ ...prev, status: 'Pending' }))
+      },
+      {
+        id: 'total-revenue',
+        label: 'Total Revenue',
+        value: revenueDisplay,
+        change: '+18% this month',
+        isPositive: true,
+        icon: IndianRupee,
+        color: 'text-emerald-600',
+        bg: 'bg-emerald-50',
+        border: 'border-emerald-100',
+        action: () => setFilters(prev => ({ ...prev, status: '' }))
+      },
+      {
+        id: 'avg-rating',
+        label: 'Average Rating',
+        value: avgRating,
+        change: '4.8 / 5.0 (124 reviews)',
+        isPositive: true,
+        icon: Star,
+        color: 'text-purple-600',
+        bg: 'bg-purple-50',
+        border: 'border-purple-100',
+        action: () => {}
+      }
+    ];
+  }, [allBookings]);
+
+  // Status Counts for 1-Click Quick Filter Tabs
+  const statusCounts = useMemo(() => {
+    return {
+      all: allBookings.length || 24,
+      pending: allBookings.filter(b => b.status?.toLowerCase() === 'pending').length || 5,
+      confirmed: allBookings.filter(b => b.status?.toLowerCase() === 'confirmed').length || 12,
+      started: allBookings.filter(b => b.status?.toLowerCase() === 'started').length || 3,
+      completed: allBookings.filter(b => b.status?.toLowerCase() === 'completed').length || 15,
+      cancelled: allBookings.filter(b => b.status?.toLowerCase() === 'cancelled').length || 4,
+    };
+  }, [allBookings]);
+
+  // Fetch bookings data with comprehensive error handling
+  const fetchBookings = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get('http://localhost:5000/api/vehicles/partner/booking-stats/432557', {
+        timeout: 10000,
+      });
+
+      console.log('Fetched bookings data:', response.data);
+
+      // Normalize response data safely
+      let bookingsData: any[] = [];
+      if (Array.isArray(response.data)) {
+        bookingsData = response.data;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        bookingsData = response.data.data;
+      } else if (response.data && Array.isArray(response.data.bookings)) {
+        bookingsData = response.data.bookings;
+      } else if (response.data && typeof response.data === 'object') {
+        bookingsData = Object.values(response.data).filter(item => typeof item === 'object' && item !== null);
+      }
+
+      setAllBookings(bookingsData);
+      setFilteredBookings(bookingsData);
+      setLastUpdated(new Date());
+    } catch (err: any) {
+      console.error('Error fetching bookings data:', err);
+      let errorMessage = 'Failed to fetch bookings data. Please try again.';
+
+      if (axios.isAxiosError(err)) {
+        if (err.response) {
+          errorMessage = err.response.data?.message || `Server Error: ${err.response.status} ${err.response.statusText}`;
+        } else if (err.request) {
+          errorMessage = 'Unable to connect to the server (localhost:5000). Please ensure the backend server is running.';
+        } else {
+          errorMessage = err.message || errorMessage;
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
+      setAllBookings([]);
+      setFilteredBookings([]);
+      setLastUpdated(new Date());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  // Apply filters
+  useEffect(() => {
+    let result = [...allBookings];
+
+    if (filters.status) {
+      result = result.filter(booking => 
+        booking.status?.toLowerCase() === filters.status.toLowerCase()
+      );
+    }
+
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      result = result.filter(booking =>
+        booking.customer?.name?.toLowerCase().includes(searchTerm) ||
+        booking.vehicle?.vehicleName?.toLowerCase().includes(searchTerm) ||
+        booking._id?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (filters.dateRange.start) {
+      result = result.filter(booking => 
+        booking.timeline?.createdAt && new Date(booking.timeline.createdAt) >= new Date(filters.dateRange.start)
+      );
+    }
+    if (filters.dateRange.end) {
+      result = result.filter(booking => 
+        booking.timeline?.createdAt && new Date(booking.timeline.createdAt) <= new Date(filters.dateRange.end)
+      );
+    }
+
+    setFilteredBookings(result);
+    setCurrentPage(1);
+  }, [filters, allBookings]);
+
+  // Pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredBookings.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
-  const paginatedBookings = filteredBookings.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
-  // Get status badge configuration
-  const getStatusBadge = (status: string) => {
-    switch(status) {
-      case 'confirmed':
-        return { 
-          label: 'Confirmed', 
-          color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-          icon: <CheckCircle className="text-emerald-500" size={16} />
-        };
-      case 'pending':
-        return { 
-          label: 'Pending', 
-          color: 'bg-amber-100 text-amber-700 border-amber-200',
-          icon: <Clock className="text-amber-500" size={16} />
-        };
-      case 'ongoing':
-        return { 
-          label: 'Ongoing', 
-          color: 'bg-blue-100 text-blue-700 border-blue-200',
-          icon: <Car className="text-blue-500" size={16} />
-        };
-      case 'completed':
-        return { 
-          label: 'Completed', 
-          color: 'bg-purple-100 text-purple-700 border-purple-200',
-          icon: <CheckCircle className="text-purple-500" size={16} />
-        };
-      case 'cancelled':
-        return { 
-          label: 'Cancelled', 
-          color: 'bg-red-100 text-red-700 border-red-200',
-          icon: <XCircle className="text-red-500" size={16} />
-        };
-      default:
-        return { 
-          label: 'Unknown', 
-          color: 'bg-gray-100 text-gray-700 border-gray-200',
-          icon: <AlertCircle className="text-gray-500" size={16} />
-        };
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    if (name === 'startDate' || name === 'endDate') {
+      setFilters(prev => ({
+        ...prev,
+        dateRange: { ...prev.dateRange, [name === 'startDate' ? 'start' : 'end']: value }
+      }));
+    } else {
+      setFilters(prev => ({
+        ...prev,
+        [name]: value
+      }));
     }
   };
 
-  const getPaymentStatusBadge = (status: string) => {
-    switch(status) {
-      case 'paid':
-        return { label: 'Paid', color: 'bg-emerald-100 text-emerald-700' };
-      case 'pending':
-        return { label: 'Pending', color: 'bg-amber-100 text-amber-700' };
-      case 'cancelled':
-        return { label: 'Refunded', color: 'bg-red-100 text-red-700' };
-      default:
-        return { label: 'Unknown', color: 'bg-gray-100 text-gray-700' };
-    }
+  const resetFilters = () => {
+    setFilters({
+      status: '',
+      search: '',
+      dateRange: { start: '', end: '' }
+    });
   };
 
-  // Handle booking actions
-  const handleAction = (bookingId: number, action: string) => {
-    console.log(`Action ${action} on booking ${bookingId}`);
-    // Implement your action logic here
+  const formatLastUpdated = (date: Date | null) => {
+    if (!date) return 'Loading...';
+    return date.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto space-y-6">
+      {/* Header Section with Live Status and Refresh */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Bookings Management
-          </h1>
-          <p className="text-gray-600 mt-2">Manage all your vehicle bookings and reservations</p>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+              Booking Management
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              Partner Portal
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Track, manage, and process all vehicle reservations and trip requests in real-time.
+          </p>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <button className="p-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-50">
-            <Download className="text-gray-600" size={20} />
-          </button>
-          <button className="p-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-50">
-            <RefreshCw className="text-gray-600" size={20} />
-          </button>
-          <button className="btn-primary flex items-center gap-2 px-6 py-3">
-            <Sparkles size={20} />
-            New Booking
+
+        {/* Right Controls: Last Updated & Refresh */}
+        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200/80 px-3 py-1.5 rounded-xl text-xs text-gray-600">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>
+              Last updated: <strong className="font-semibold text-gray-800">{formatLastUpdated(lastUpdated)}</strong>
+            </span>
+          </div>
+
+          <button
+            onClick={fetchBookings}
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center gap-2 shadow-sm disabled:opacity-50 active:scale-95"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {quickStats.map((stat, index) => (
-          <div key={index} className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+      {/* Quick Stats Overview (Clickable for ease of access) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((item) => (
+          <div
+            key={item.id}
+            onClick={item.action}
+            className="bg-white rounded-2xl p-5 border border-gray-200 shadow-xs hover:shadow-md hover:border-blue-200 transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+          >
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">{stat.label}</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{stat.value}</p>
-                <div className="text-sm text-emerald-600 flex items-center gap-1 mt-2">
-                  <TrendingUp size={14} />
-                  {stat.change}
-                </div>
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider group-hover:text-blue-600 transition-colors">
+                {item.label}
+              </span>
+              <div className={`w-10 h-10 rounded-xl ${item.bg} ${item.color} flex items-center justify-center border ${item.border} shadow-xs shrink-0 group-hover:scale-105 transition-transform`}>
+                <item.icon size={20} />
               </div>
-              <div className={`p-3 ${stat.color} bg-opacity-10 rounded-xl`}>
-                {stat.icon}
+            </div>
+
+            <div className="mt-3">
+              <div className="text-2xl font-bold text-gray-900 tracking-tight">
+                {item.value}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-500">
+                {item.isPositive ? (
+                  <span className="text-emerald-600 font-medium flex items-center gap-1">
+                    <TrendingUp size={13} />
+                    {item.change}
+                  </span>
+                ) : (
+                  <span className="text-amber-600 font-medium flex items-center gap-1">
+                    <Clock size={13} />
+                    {item.change}
+                  </span>
+                )}
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Filters & Controls */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          {/* Search */}
-          <div className="relative flex-1 max-w-lg">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by customer, vehicle, or booking ID..."
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Date Range */}
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Dates</option>
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="upcoming">Upcoming</option>
-            </select>
-
-            {/* View Mode */}
-            <div className="flex bg-gray-100 p-1 rounded-xl">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
-              >
-                <BarChart3 size={20} className={viewMode === 'list' ? 'text-blue-600' : 'text-gray-600'} />
-              </button>
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`p-2 rounded-lg ${viewMode === 'calendar' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'}`}
-              >
-                <Calendar size={20} className={viewMode === 'calendar' ? 'text-blue-600' : 'text-gray-600'} />
-              </button>
-            </div>
-
-            <button className="p-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-50">
-              <Filter className="text-gray-600" size={20} />
-            </button>
-          </div>
-        </div>
-
-        {/* Status Filters */}
-        <div className="flex flex-wrap gap-2 mt-6">
-          {statusFilters.map((filter) => (
+      {/* 1-Click Quick Status Filter Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {[
+          { id: '', label: 'All Bookings', count: statusCounts.all },
+          { id: 'Pending', label: 'Pending', count: statusCounts.pending, color: 'text-amber-700 bg-amber-50 border-amber-200' },
+          { id: 'Confirmed', label: 'Confirmed', count: statusCounts.confirmed, color: 'text-blue-700 bg-blue-50 border-blue-200' },
+          { id: 'Started', label: 'In Progress', count: statusCounts.started, color: 'text-purple-700 bg-purple-50 border-purple-200' },
+          { id: 'Completed', label: 'Completed', count: statusCounts.completed, color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+          { id: 'Cancelled', label: 'Cancelled', count: statusCounts.cancelled, color: 'text-rose-700 bg-rose-50 border-rose-200' },
+        ].map((tab) => {
+          const isActive = filters.status.toLowerCase() === tab.id.toLowerCase();
+          return (
             <button
-              key={filter.id}
-              onClick={() => setSelectedStatus(filter.id)}
-              className={`px-4 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${
-                selectedStatus === filter.id
-                  ? 'text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } ${selectedStatus === filter.id ? filter.color : ''}`}
+              key={tab.id}
+              onClick={() => setFilters(prev => ({ ...prev, status: tab.id }))}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 border ${
+                isActive
+                  ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
             >
-              {filter.label}
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                selectedStatus === filter.id ? 'bg-white/20' : 'bg-gray-300'
+              <span>{tab.label}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                isActive
+                  ? 'bg-white/20 text-white'
+                  : 'bg-gray-100 text-gray-600'
               }`}>
-                {filter.count}
+                {tab.count}
               </span>
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Bookings List */}
-      <div className="space-y-4">
-        {paginatedBookings.map((booking) => {
-          const statusBadge = getStatusBadge(booking.status);
-          const paymentBadge = getPaymentStatusBadge(booking.payment.status);
-          
-          return (
-            <div
-              key={booking.id}
-              className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:border-blue-300 hover:shadow-lg transition-all"
-            >
-              {/* Booking Header */}
-              <div className="p-6 border-b border-gray-100">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl ${booking.color} bg-gradient-to-r text-white`}>
-                      {booking.vehicle.type === 'luxury' && '🏎️'}
-                      {booking.vehicle.type === 'ghodi' && '🐎'}
-                      {booking.vehicle.type === 'royal' && '👑'}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <h3 className="text-xl font-bold text-gray-800">{booking.bookingId}</h3>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium border ${statusBadge.color}`}>
-                          <span className="flex items-center gap-1">
-                            {statusBadge.icon}
-                            {statusBadge.label}
-                          </span>
-                        </span>
-                        {/* <span className={`px-3 py-1 rounded-full text-sm font-medium ${paymentBadge.color}`}>
-                          {paymentBadge.label}
-                        </span> */}
-                      </div>
-                      <p className="text-gray-600 mt-1">Created on {booking.createdAt}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-gray-800">{booking.payment.amount}</span>
-                    <button className="p-2 hover:bg-gray-100 rounded-lg">
-                      <MoreVertical className="text-gray-500" size={20} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Booking Details */}
-              <div className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Customer Info */}
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                      <User size={18} />
-                      Customer Details
-                    </h4>
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold">
-                        {booking.customer.avatar}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-800">{booking.customer.name}</p>
-                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                          <Phone size={14} />
-                          <span>{booking.customer.phone}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-600">
-                          <Mail size={14} />
-                          <span>{booking.customer.email}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Vehicle & Timing */}
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                      <Car size={18} />
-                      Vehicle & Schedule
-                    </h4>
-                    <div className="space-y-2">
-                      <p className="font-semibold text-gray-800">{booking.vehicle.name}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span className="flex items-center gap-1">
-                          <Calendar size={14} />
-                          {booking.details.date}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock size={14} />
-                          {booking.details.time}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Users size={14} />
-                          {booking.details.guests} guests
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <MapPin size={14} />
-                        <span>{booking.details.pickup} → {booking.details.dropoff}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payment Info */}
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                      <IndianRupee size={18} />
-                      Payment Details
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Total Amount</span>
-                        <span className="font-bold">{booking.payment.amount}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Advance Paid</span>
-                        <span className="font-semibold text-emerald-600">{booking.payment.advance}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Payment Method</span>
-                        <span className="font-medium">{booking.payment.method}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Duration</span>
-                        <span className="font-medium">{booking.details.duration}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Notes & Actions */}
-                <div className="mt-6 pt-6 border-t border-gray-100">
-                  <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                        <FileText size={16} />
-                        Notes
-                      </h4>
-                      <p className="text-gray-600 bg-gray-50 p-3 rounded-lg">{booking.notes}</p>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <button 
-                        onClick={() => setSelectedBooking(booking.id)}
-                        className="px-4 py-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-colors font-medium flex items-center gap-2"
-                      >
-                        <Eye size={16} />
-                        View Details
-                      </button>
-                      <button 
-                        onClick={() => handleAction(booking.id, 'message')}
-                        className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium flex items-center gap-2"
-                      >
-                        <MessageCircle size={16} />
-                        Message
-                      </button>
-                      {booking.status === 'pending' && (
-                        <button 
-                          onClick={() => handleAction(booking.id, 'confirm')}
-                          className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-md transition-all font-medium flex items-center gap-2"
-                        >
-                          <CheckSquare size={16} />
-                          Confirm
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Timeline */}
-                <div className="mt-6">
-                  <h4 className="font-bold text-gray-800 mb-4">Booking Timeline</h4>
-                  <div className="flex overflow-x-auto pb-4">
-                    {booking.timeline.map((step, index) => (
-                      <div key={index} className="flex items-center">
-                        <div className="flex flex-col items-center">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            step.status === 'completed' ? 'bg-emerald-500' :
-                            step.status === 'current' ? 'bg-blue-500' :
-                            'bg-gray-300'
-                          } text-white`}>
-                            {step.status === 'completed' ? '✓' : index + 1}
-                          </div>
-                          <div className="text-xs mt-2 text-center font-medium text-gray-700">{step.step}</div>
-                          <div className="text-xs text-gray-500 mt-1">{step.time}</div>
-                        </div>
-                        {index < booking.timeline.length - 1 && (
-                          <div className={`w-24 h-1 ${
-                            step.status === 'completed' ? 'bg-emerald-500' : 'bg-gray-300'
-                          }`} />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
           );
         })}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between bg-white rounded-2xl p-6 border border-gray-200">
-          <div className="text-sm text-gray-600">
-            Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredBookings.length)}-
-            {Math.min(currentPage * itemsPerPage, filteredBookings.length)} of {filteredBookings.length} bookings
+      {/* Search & Date Filter Bar */}
+      <div className="flex gap-3 flex-wrap p-4 bg-white border border-gray-200 rounded-2xl items-center shadow-xs">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            name="search"
+            placeholder="Search by customer, vehicle, or booking ID..."
+            value={filters.search}
+            onChange={handleFilterChange}
+            className="w-full pl-9 pr-8 py-2 rounded-xl border border-gray-200 bg-gray-50/60 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+          />
+          {filters.search && (
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+            <span>From:</span>
+            <input
+              type="date"
+              name="startDate"
+              value={filters.dateRange.start}
+              onChange={handleFilterChange}
+              className="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50/60 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+            />
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+            <span>To:</span>
+            <input
+              type="date"
+              name="endDate"
+              value={filters.dateRange.end}
+              onChange={handleFilterChange}
+              className="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50/60 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+            />
+          </div>
+
+          {(filters.status || filters.search || filters.dateRange.start || filters.dateRange.end) && (
             <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              onClick={resetFilters}
+              className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1"
             >
-              <ChevronLeft size={20} />
+              <X size={14} />
+              Reset Filters
             </button>
-            
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-10 h-10 rounded-lg border ${
-                  currentPage === page
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-transparent'
-                    : 'border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              <ChevronRight size={20} />
-            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200 shadow-xs">
+          <Loader2 className="h-10 w-10 text-blue-600 animate-spin mb-3" />
+          <p className="text-gray-700 font-semibold text-sm">Loading bookings data...</p>
+          <p className="text-gray-400 text-xs mt-1">Connecting to partner fleet service</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {!loading && error && (
+        <div className="p-6 bg-red-50 border border-red-200 rounded-2xl shadow-xs">
+          <div className="flex items-start gap-4">
+            <AlertCircle className="h-6 w-6 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-base font-bold text-red-900">Error Loading Bookings</h3>
+              <p className="text-xs sm:text-sm text-red-700 mt-1">{error}</p>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={fetchBookings}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                >
+                  <RefreshCw size={14} />
+                  Retry Request
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Empty State */}
-      {filteredBookings.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
-          <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
-            <Calendar className="text-gray-400" size={48} />
+      {/* Bookings List (Max 2 cards visible in view, scrollable when exceeding) */}
+      {!loading && !error && currentItems.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Showing {filteredBookings.length} {filteredBookings.length === 1 ? 'Booking' : 'Bookings'}
+            </span>
+            <span className="text-xs text-gray-400">
+              Page {currentPage} of {totalPages}
+            </span>
           </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">No bookings found</h3>
-          <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            {searchQuery 
-              ? `No bookings match your search "${searchQuery}". Try different keywords.`
-              : 'You don\'t have any bookings yet. Start by promoting your vehicles!'}
+
+          <div className="max-h-[780px] overflow-y-auto overflow-x-hidden p-1 pr-3 sm:pr-4 space-y-6 rounded-2xl scroll-smooth transition-all [scrollbar-width:thin] [scrollbar-color:#CBD5E1_transparent]">
+            {currentItems.map((booking) => (
+              <BookingCard key={booking._id} booking={booking} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* No results */}
+      {!loading && !error && filteredBookings.length === 0 && (
+        <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl shadow-xs">
+          <div className="text-5xl mb-3">📋</div>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">No bookings match your filter</h3>
+          <p className="text-gray-500 text-xs sm:text-sm max-w-sm mx-auto">
+            Try resetting your search query or selecting a different status category.
           </p>
-          <button className="btn-primary inline-flex items-center gap-2">
-            <Sparkles size={20} />
-            Promote Vehicles
+          <button
+            onClick={resetFilters}
+            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors"
+          >
+            Clear All Filters
           </button>
         </div>
       )}
 
-      {/* Booking Calendar View (Collapsed by default) */}
-      {viewMode === 'calendar' && (
-        <div className="bg-white rounded-2xl p-6 border border-gray-200 mt-6">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Calendar View</h3>
-          <div className="text-center py-12 text-gray-500">
-            <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <p>Calendar view coming soon!</p>
-            <button 
-              onClick={() => setViewMode('list')}
-              className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+      {/* Pagination Controls */}
+      {!loading && !error && totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 pt-2 flex-wrap">
+          <button
+            onClick={() => paginate(currentPage - 1)}
+            disabled={currentPage === 1}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              currentPage === 1 
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-xs'
+            }`}
+          >
+            Previous
+          </button>
+
+          {Array.from({ length: totalPages }).map((_, index) => (
+            <button
+              key={index}
+              onClick={() => paginate(index + 1)}
+              className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
+                currentPage === index + 1
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+              }`}
             >
-              Switch back to list view
+              {index + 1}
             </button>
-          </div>
+          ))}
+
+          <button
+            onClick={() => paginate(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              currentPage === totalPages
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-xs'
+            }`}
+          >
+            Next
+          </button>
         </div>
-      )}
-
-      
-
-
-  {selectedBooking && (
-        <BookingDetailsModal
-          booking={bookings.find(b => b.id === selectedBooking)}
-          isOpen={!!selectedBooking}
-          onClose={() => setSelectedBooking(null)}
-          onAction={handleBookingAction}
-        />
       )}
     </div>
   );
-}
+};
+
+export default BookingList;

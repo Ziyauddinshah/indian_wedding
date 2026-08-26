@@ -1,304 +1,358 @@
-
-// components/BookingList.jsx
-
+// components/BookingRequestsPage.tsx
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
-import BookingCard from './BookingCard';
-import axios from 'axios';
-import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { useState } from "react";
 
-const BookingList = () => {
-  const [allBookings, setAllBookings] = useState<any[]>([]);
-  const [filteredBookings, setFilteredBookings] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage] = useState<number>(6);
-  const [filters, setFilters] = useState({
-    status: '',
-    search: '',
-    dateRange: { start: '', end: '' }
-  });
+type BookingStatus = "pending" | "confirmed" | "rejected";
 
-  // Fetch bookings data with comprehensive error handling
-  const fetchBookings = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await axios.get('http://localhost:5000/api/vehicles/partner/booking-stats/432557', {
-        timeout: 10000,
-      });
+type BookingRequest = {
+  id: number;
+  renterName: string;
+  vehicleName: string;
+  pickupLocation: string;
+  startDate: string;
+  endDate: string;
+  totalAmount: number;
+  status: BookingStatus;
+  rejectionReason?: string;
+};
 
-      console.log('Fetched bookings data:', response.data);
+const initialRequests: BookingRequest[] = [
+  {
+    id: 1,
+    renterName: "Maya Chen",
+    vehicleName: "2023 Volvo XC40",
+    pickupLocation: "SFO Terminal 2",
+    startDate: "2026-09-10",
+    endDate: "2026-09-13",
+    totalAmount: 312.4,
+    status: "pending",
+  },
+  {
+    id: 2,
+    renterName: "Elliot Brooks",
+    vehicleName: "2022 Tesla Model 3",
+    pickupLocation: "Oakland Jack London Square",
+    startDate: "2026-09-15",
+    endDate: "2026-09-17",
+    totalAmount: 188.75,
+    status: "pending",
+  },
+];
 
-      // Normalize response data safely
-      let bookingsData: any[] = [];
-      if (Array.isArray(response.data)) {
-        bookingsData = response.data;
-      } else if (response.data && Array.isArray(response.data.data)) {
-        bookingsData = response.data.data;
-      } else if (response.data && Array.isArray(response.data.bookings)) {
-        bookingsData = response.data.bookings;
-      } else if (response.data && typeof response.data === 'object') {
-        bookingsData = Object.values(response.data).filter(item => typeof item === 'object' && item !== null);
-      }
+const statusStyles: Record<BookingStatus, string> = {
+  pending: "bg-amber-100 text-amber-800",
+  confirmed: "bg-emerald-100 text-emerald-800",
+  rejected: "bg-red-100 text-red-800",
+};
 
-      setAllBookings(bookingsData);
-      setFilteredBookings(bookingsData);
-    } catch (err: any) {
-      console.error('Error fetching bookings data:', err);
-      let errorMessage = 'Failed to fetch bookings data. Please try again.';
+export default function BookingRequestsPage() {
+  const [requests, setRequests] =
+    useState<BookingRequest[]>(initialRequests);
 
-      if (axios.isAxiosError(err)) {
-        if (err.response) {
-          // Server responded with an error status code
-          errorMessage = err.response.data?.message || `Server Error: ${err.response.status} ${err.response.statusText}`;
-        } else if (err.request) {
-          // Request was made but no response was received (e.g. backend server offline / network error)
-          errorMessage = 'Unable to connect to the server (localhost:5000). Please ensure the backend server is running.';
-        } else {
-          // Error in setting up the request
-          errorMessage = err.message || errorMessage;
-        }
-      } else if (err instanceof Error) {
-        errorMessage = err.message;
-      }
+  const [selectedRequest, setSelectedRequest] =
+    useState<BookingRequest | null>(null);
 
-      setError(errorMessage);
-      setAllBookings([]);
-      setFilteredBookings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [rejectingRequestId, setRejectingRequestId] =
+    useState<number | null>(null);
 
-  useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
+  const [rejectionReason, setRejectionReason] = useState("");
 
-  // Apply filters
-  useEffect(() => {
-    let result = [...allBookings];
-
-    if (filters.status) {
-      result = result.filter(booking => 
-        booking.status?.toLowerCase() === filters.status.toLowerCase()
-      );
-    }
-
-    if (filters.search) {
-      const searchTerm = filters.search.toLowerCase();
-      result = result.filter(booking =>
-        booking.customer?.name?.toLowerCase().includes(searchTerm) ||
-        booking.vehicle?.vehicleName?.toLowerCase().includes(searchTerm) ||
-        booking._id?.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    if (filters.dateRange.start) {
-      result = result.filter(booking => 
-        booking.timeline?.createdAt && new Date(booking.timeline.createdAt) >= new Date(filters.dateRange.start)
-      );
-    }
-    if (filters.dateRange.end) {
-      result = result.filter(booking => 
-        booking.timeline?.createdAt && new Date(booking.timeline.createdAt) <= new Date(filters.dateRange.end)
-      );
-    }
-
-    setFilteredBookings(result);
-    setCurrentPage(1);
-  }, [filters, allBookings]);
-
-  // Pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredBookings.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
-
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    if (name === 'startDate' || name === 'endDate') {
-      setFilters(prev => ({
-        ...prev,
-        dateRange: { ...prev.dateRange, [name === 'startDate' ? 'start' : 'end']: value }
-      }));
-    } else {
-      setFilters(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+  const confirmBooking = (requestId: number) => {
+    setRequests((currentRequests) =>
+      currentRequests.map((request) =>
+        request.id === requestId
+          ? { ...request, status: "confirmed" }
+          : request,
+      ),
+    );
   };
 
-  const resetFilters = () => {
-    setFilters({
-      status: '',
-      search: '',
-      dateRange: { start: '', end: '' }
-    });
+  const openRejectForm = (requestId: number) => {
+    setRejectingRequestId(requestId);
+    setRejectionReason("");
+  };
+
+  const cancelReject = () => {
+    setRejectingRequestId(null);
+    setRejectionReason("");
+  };
+
+  const rejectBooking = (requestId: number) => {
+    if (!rejectionReason.trim()) {
+      return;
+    }
+
+    setRequests((currentRequests) =>
+      currentRequests.map((request) =>
+        request.id === requestId
+          ? {
+              ...request,
+              status: "rejected",
+              rejectionReason: rejectionReason.trim(),
+            }
+          : request,
+      ),
+    );
+
+    cancelReject();
   };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Bookings
-          <span className="text-sm font-normal text-gray-500 ml-3">
-            ({filteredBookings.length} bookings)
-          </span>
-        </h2>
-        <button
-          onClick={fetchBookings}
-          disabled={loading}
-          className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
+    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8">
+          <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-blue-600">
+            Vehicle owner dashboard
+          </p>
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap mb-6 p-4 bg-gray-50 rounded-xl items-center">
-        <select
-          name="status"
-          value={filters.status}
-          onChange={handleFilterChange}
-          className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm min-w-[130px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All Status</option>
-          <option value="Pending">Pending</option>
-          <option value="Confirmed">Confirmed</option>
-          <option value="Started">Started</option>
-          <option value="Completed">Completed</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+            Booking requests
+          </h1>
 
-        <input
-          type="text"
-          name="search"
-          placeholder="Search bookings..."
-          value={filters.search}
-          onChange={handleFilterChange}
-          className="flex-1 min-w-[200px] px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-
-        <input
-          type="date"
-          name="startDate"
-          value={filters.dateRange.start}
-          onChange={handleFilterChange}
-          className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-
-        <input
-          type="date"
-          name="endDate"
-          value={filters.dateRange.end}
-          onChange={handleFilterChange}
-          className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-
-        <button
-          onClick={resetFilters}
-          className="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          Reset
-        </button>
-      </div>
-
-      {/* Loading State */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
-          <Loader2 className="h-10 w-10 text-blue-600 animate-spin mb-4" />
-          <p className="text-gray-600 font-medium">Loading bookings data...</p>
+          <p className="mt-2 text-slate-600">
+            Review requests and decide which bookings to accept.
+          </p>
         </div>
-      )}
 
-      {/* Error State */}
-      {!loading && error && (
-        <div className="p-6 mb-6 bg-red-50 border border-red-200 rounded-2xl">
-          <div className="flex items-start gap-4">
-            <AlertCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h3 className="text-base font-semibold text-red-800">Error Loading Bookings</h3>
-              <p className="text-sm text-red-600 mt-1">{error}</p>
-              <button
-                onClick={fetchBookings}
-                className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors inline-flex items-center gap-2"
+        {requests.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">
+              No booking requests
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-500">
+              New requests will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-2">
+            {requests.map((request) => (
+              <article
+                key={request.id}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
               >
-                <RefreshCw size={16} />
-                Retry
+                <div className="border-b border-slate-100 p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-950">
+                        {request.renterName}
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Booking request #{request.id}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${statusStyles[request.status]}`}
+                    >
+                      {request.status}
+                    </span>
+                  </div>
+
+                  <div className="mt-6 rounded-xl bg-slate-50 p-4">
+                    <h3 className="font-semibold text-slate-900">
+                      {request.vehicleName}
+                    </h3>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Requested vehicle
+                    </p>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Trip dates
+                      </p>
+
+                      <p className="mt-1 font-medium text-slate-800">
+                        {request.startDate} - {request.endDate}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Pickup location
+                      </p>
+
+                      <p className="mt-1 font-medium text-slate-800">
+                        {request.pickupLocation}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Owner payout
+                      </p>
+
+                      <p className="mt-1 text-lg font-bold text-slate-950">
+                        ${request.totalAmount.toFixed(2)}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Current status
+                      </p>
+
+                      <p className="mt-1 font-medium capitalize text-slate-800">
+                        {request.status}
+                      </p>
+                    </div>
+                  </div>
+
+                  {request.rejectionReason && (
+                    <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-red-700">
+                        Rejection reason
+                      </p>
+
+                      <p className="mt-1 text-sm text-red-800">
+                        {request.rejectionReason}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {rejectingRequestId === request.id && (
+                  <div className="border-b border-slate-100 bg-red-50 p-6">
+                    <label
+                      htmlFor={`reason-${request.id}`}
+                      className="block text-sm font-semibold text-red-900"
+                    >
+                      Rejection reason
+                    </label>
+
+                    <textarea
+                      id={`reason-${request.id}`}
+                      value={rejectionReason}
+                      onChange={(event) =>
+                        setRejectionReason(event.target.value)
+                      }
+                      placeholder="Explain why you cannot accept this request"
+                      rows={3}
+                      className="mt-2 w-full rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                    />
+
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={cancelReject}
+                        className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white hover:text-slate-900"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => rejectBooking(request.id)}
+                        disabled={!rejectionReason.trim()}
+                        className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Confirm rejection
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRequest(request)}
+                    className="text-left text-sm font-semibold text-blue-600 transition hover:text-blue-800"
+                  >
+                    View details
+                  </button>
+
+                  {request.status === "pending" && (
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => openRejectForm(request.id)}
+                        className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                      >
+                        Reject
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => confirmBooking(request.id)}
+                        className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
+                      >
+                        Confirm booking
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        {selectedRequest && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-blue-600">
+                    Booking details
+                  </p>
+
+                  <h2 className="mt-1 text-2xl font-bold text-slate-950">
+                    {selectedRequest.renterName}
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedRequest(null)}
+                  className="rounded-lg px-3 py-1 text-2xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Close details"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-4 text-sm">
+                <p>
+                  <span className="font-semibold text-slate-500">Vehicle:</span>{" "}
+                  {selectedRequest.vehicleName}
+                </p>
+
+                <p>
+                  <span className="font-semibold text-slate-500">
+                    Trip dates:
+                  </span>{" "}
+                  {selectedRequest.startDate} - {selectedRequest.endDate}
+                </p>
+
+                <p>
+                  <span className="font-semibold text-slate-500">
+                    Pickup:
+                  </span>{" "}
+                  {selectedRequest.pickupLocation}
+                </p>
+
+                <p>
+                  <span className="font-semibold text-slate-500">
+                    Payout:
+                  </span>{" "}
+                  ${selectedRequest.totalAmount.toFixed(2)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedRequest(null)}
+                className="mt-8 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+              >
+                Close details
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Bookings List (Max 2 cards visible in view, scrollable when exceeding) */}
-      {!loading && !error && currentItems.length > 0 && (
-        <div className="max-h-[780px] overflow-y-auto overflow-x-hidden p-1 pr-3 sm:pr-4 space-y-6 rounded-2xl scroll-smooth transition-all [scrollbar-width:thin] [scrollbar-color:#CBD5E1_transparent]">
-          {currentItems.map((booking) => (
-            <BookingCard key={booking._id} booking={booking} />
-          ))}
-        </div>
-      )}
-
-      {/* No results */}
-      {!loading && !error && filteredBookings.length === 0 && (
-        <div className="text-center py-16 bg-gray-50 rounded-xl">
-          <div className="text-5xl mb-3">📋</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No bookings found</h3>
-          <p className="text-gray-500">Try adjusting your filters or search terms</p>
-        </div>
-      )}
-
-      {/* Pagination */}
-      {!loading && !error && totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
-          <button
-            onClick={() => paginate(currentPage - 1)}
-            disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              currentPage === 1 
-                ? 'bg-gray-100 text-gray-400 cursor-default' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-          >
-            Previous
-          </button>
-
-          {Array.from({ length: totalPages }).map((_, index) => (
-            <button
-              key={index}
-              onClick={() => paginate(index + 1)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                currentPage === index + 1
-                  ? 'bg-blue-700 text-white'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
-            >
-              {index + 1}
-            </button>
-          ))}
-
-          <button
-            onClick={() => paginate(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              currentPage === totalPages
-                ? 'bg-gray-100 text-gray-400 cursor-default'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-          >
-            Next
-          </button>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </main>
   );
-};
-
-export default BookingList;
+}

@@ -154,7 +154,7 @@ export interface VehicleFilters {
 export const vehicleApi = {
   // Get all vehicles (with optional filters)
   getAll: (filters?: VehicleFilters) =>
-    api.get<{ vehicles: Vehicle[]; total: number; pages: number }>('/vehicles', {
+    api.get<{ vehicles: Vehicle[]; total: number; pages: number }>('http://localhost:5000/api/vehicles/my-vehicles', {
       params: filters,
     }),
 
